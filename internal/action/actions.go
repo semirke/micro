@@ -471,6 +471,14 @@ func (h *BufPane) InsertNewline() bool {
 
 	ws := util.GetLeadingWhitespace(h.Buf.LineBytes(h.Cursor.Y))
 	cx := h.Cursor.X
+
+	// Remove the whitespaces if keepautoindent setting is off
+	// Note: it should be done prior to inserting newline, for proper work
+	// of hltrailingws in the case of undo of InsertNewline
+	if h.Buf.Settings["autoindent"].(bool) && !h.Buf.Settings["keepautoindent"].(bool) && h.Cursor.X <= util.CharacterCount(ws) {
+		h.Buf.Remove(buffer.Loc{X: 0, Y: h.Cursor.Y}, h.Cursor.Loc)
+	}
+
 	h.Buf.Insert(h.Cursor.Loc, "\n")
 	// h.Cursor.Right()
 
@@ -482,12 +490,6 @@ func (h *BufPane) InsertNewline() bool {
 		// for i := 0; i < len(ws); i++ {
 		// 	h.Cursor.Right()
 		// }
-
-		// Remove the whitespaces if keepautoindent setting is off
-		if util.IsSpacesOrTabs(h.Buf.LineBytes(h.Cursor.Y-1)) && !h.Buf.Settings["keepautoindent"].(bool) {
-			line := h.Buf.LineBytes(h.Cursor.Y - 1)
-			h.Buf.Remove(buffer.Loc{X: 0, Y: h.Cursor.Y - 1}, buffer.Loc{X: util.CharacterCount(line), Y: h.Cursor.Y - 1})
-		}
 	}
 	h.Cursor.LastVisualX = h.Cursor.GetVisualX()
 	h.Relocate()
