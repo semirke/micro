@@ -159,6 +159,13 @@ Here are the available options:
 	default value: `unknown`. This will be automatically overridden depending
     on the file you open.
 
+* `hltaberrors`: highlight tabs when spaces are expected, and spaces when tabs
+   are expected. More precisely: if `tabstospaces` option is on, highlight
+   all tab characters; if `tabstospaces` is off, highlight space characters
+   in the initial indent part of the line.
+
+	default value: `false`
+
 * `ignorecase`: perform case-insensitive searches.
 
 	default value: `true`
