@@ -172,6 +172,10 @@ Here are the available options:
 
 	default value: `false`
 
+* `incsearch`: enable incremental search in "Find" prompt (matching as you type).
+
+	default value: `true`
+
 * `ignorecase`: perform case-insensitive searches.
 
 	default value: `true`
@@ -436,6 +440,7 @@ so that you can see what the formatting should look like.
     "fastdirty": false,
     "fileformat": "unix",
     "filetype": "unknown",
+    "incsearch": true,
     "ftoptions": true,
     "ignorecase": false,
     "indentchar": " ",
