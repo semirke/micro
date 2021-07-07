@@ -10,9 +10,11 @@ func (b *Buffer) SetOptionNative(option string, nativeValue interface{}) error {
 
 	if option == "fastdirty" {
 		if !nativeValue.(bool) {
-			e := calcHash(b, &b.origHash)
-			if e == ErrFileTooLarge {
-				b.Settings["fastdirty"] = false
+			if !b.Modified() {
+				e := calcHash(b, &b.origHash)
+				if e == ErrFileTooLarge {
+					b.Settings["fastdirty"] = false
+				}
 			}
 		}
 	} else if option == "statusline" {
@@ -37,6 +39,10 @@ func (b *Buffer) SetOptionNative(option string, nativeValue interface{}) error {
 		b.isModified = true
 	} else if option == "readonly" && b.Type.Kind == BTDefault.Kind {
 		b.Type.Readonly = nativeValue.(bool)
+	}
+
+	if b.OptionCallback != nil {
+		b.OptionCallback(option, nativeValue)
 	}
 
 	return nil

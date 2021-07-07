@@ -2,7 +2,7 @@ package buffer
 
 import (
 	"github.com/zyedidia/micro/v2/internal/config"
-	"github.com/zyedidia/tcell"
+	"github.com/zyedidia/tcell/v2"
 )
 
 type MsgType int
@@ -81,4 +81,14 @@ func (b *Buffer) ClearMessages(owner string) {
 
 func (b *Buffer) ClearAllMessages() {
 	b.Messages = make([]*Message, 0)
+}
+
+type Messager interface {
+	Message(msg ...interface{})
+}
+
+var prompt Messager
+
+func SetMessager(m Messager) {
+	prompt = m
 }

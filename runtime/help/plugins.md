@@ -43,6 +43,12 @@ are called when certain events happen. Here is the list of callbacks
 which micro defines:
 
 * `init()`: this function should be used for your plugin initialization.
+   This function is called after buffers have been initialized.
+
+* `preinit()`: initialization function called before buffers have been
+   initialized.
+
+* `postinit()`: initialization function called after `init()`.
 
 * `onBufferOpen(buf)`: runs when a buffer is opened. The input contains
    the buffer object.
@@ -253,6 +259,7 @@ The packages and functions are listed below (in Go type signatures):
     - `MTError` error message.
 
     - `Loc(x, y int) Loc`: creates a new location struct.
+    - `SLoc(line, row int) display.SLoc`: creates a new scrolling location struct.
 
     - `BTDefault`: default buffer type.
     - `BTLog`: log buffer type.
@@ -279,6 +286,7 @@ The packages and functions are listed below (in Go type signatures):
        string is a word character.
     - `String(b []byte) string`: converts a byte array to a string.
     - `RuneStr(r rune) string`: converts a rune to a string.
+    - `Unzip(src, dest string) error`: unzips a file to given folder.
 
 This may seem like a small list of available functions but some of the objects
 returned by the functions have many methods. The Lua plugin may access any
@@ -352,12 +360,20 @@ strings
 regexp
 errors
 time
+archive/zip
+net/http
 ```
 
 For documentation for each of these functions, see the Go standard
 library documentation at https://golang.org/pkg/ (for the packages
 exposed to micro plugins). The Lua standard library is also available
 to plugins though it is rather small.
+
+The following functions are also available from the go-humanize package:
+
+The `humanize` package exposes:
+* `Bytes`
+* `Ordinal`
 
 ## Adding help files, syntax files, or colorschemes in your plugin
 
@@ -406,7 +422,7 @@ your own plugins.
 Micro also has a built in plugin manager which you can invoke with the
 `> plugin ...` command, or in the shell with `micro -plugin ...`.
 
-For the valid commands you can use, see the `command` help topic.
+For the valid commands you can use, see the `commands` help topic.
 
 The manager fetches plugins from the channels (which is simply a list of plugin
 metadata) which it knows about. By default, micro only knows about the official

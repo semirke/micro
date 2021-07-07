@@ -1,7 +1,7 @@
 package buffer
 
 import (
-	"github.com/zyedidia/clipboard"
+	"github.com/zyedidia/micro/v2/internal/clipboard"
 	"github.com/zyedidia/micro/v2/internal/util"
 )
 
@@ -67,6 +67,10 @@ func (c *Cursor) GotoLoc(l Loc) {
 
 // GetVisualX returns the x value of the cursor in visual spaces
 func (c *Cursor) GetVisualX() int {
+	if c.buf.GetVisualX != nil {
+		return c.buf.GetVisualX(c.Loc)
+	}
+
 	if c.X <= 0 {
 		c.X = 0
 		return 0
@@ -125,10 +129,10 @@ func (c *Cursor) End() {
 
 // CopySelection copies the user's selection to either "primary"
 // or "clipboard"
-func (c *Cursor) CopySelection(target string) {
+func (c *Cursor) CopySelection(target clipboard.Register) {
 	if c.HasSelection() {
-		if target != "primary" || c.buf.Settings["useprimary"].(bool) {
-			clipboard.WriteAll(string(c.GetSelection()), target)
+		if target != clipboard.PrimaryReg || c.buf.Settings["useprimary"].(bool) {
+			clipboard.WriteMulti(string(c.GetSelection()), target, c.Num, c.buf.NumCursors())
 		}
 	}
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/zyedidia/micro/v2/internal/buffer"
 	"github.com/zyedidia/micro/v2/internal/display"
-	"github.com/zyedidia/tcell"
+	"github.com/zyedidia/tcell/v2"
 )
 
 type RawPane struct {
@@ -35,6 +35,13 @@ func (h *RawPane) HandleEvent(event tcell.Event) {
 	}
 
 	h.Buf.Insert(h.Cursor.Loc, reflect.TypeOf(event).String()[7:])
+
+	e, err := ConstructEvent(event)
+	if err == nil {
+		h.Buf.Insert(h.Cursor.Loc, fmt.Sprintf(": %s", e.Name()))
+	}
+
 	h.Buf.Insert(h.Cursor.Loc, fmt.Sprintf(": %q\n", event.EscSeq()))
+
 	h.Relocate()
 }

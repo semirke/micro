@@ -50,9 +50,11 @@ func luaImportMicro() *lua.LTable {
 	ulua.L.SetField(pkg, "CurPane", luar.New(ulua.L, func() action.Pane {
 		return action.MainTab().CurPane()
 	}))
-	ulua.L.SetField(pkg, "CurTab", luar.New(ulua.L, func() *action.Tab {
-		return action.MainTab()
+	ulua.L.SetField(pkg, "CurTab", luar.New(ulua.L, action.MainTab))
+	ulua.L.SetField(pkg, "Tabs", luar.New(ulua.L, func() *action.TabList {
+		return action.Tabs
 	}))
+	ulua.L.SetField(pkg, "Lock", luar.New(ulua.L, ulua.Lock))
 
 	return pkg
 }
@@ -83,6 +85,7 @@ func luaImportMicroConfig() *lua.LTable {
 	ulua.L.SetField(pkg, "GetGlobalOption", luar.New(ulua.L, config.GetGlobalOption))
 	ulua.L.SetField(pkg, "SetGlobalOption", luar.New(ulua.L, action.SetGlobalOption))
 	ulua.L.SetField(pkg, "SetGlobalOptionNative", luar.New(ulua.L, action.SetGlobalOptionNative))
+	ulua.L.SetField(pkg, "ConfigDir", luar.New(ulua.L, config.ConfigDir))
 
 	return pkg
 }
@@ -115,6 +118,9 @@ func luaImportMicroBuffer() *lua.LTable {
 	ulua.L.SetField(pkg, "Loc", luar.New(ulua.L, func(x, y int) buffer.Loc {
 		return buffer.Loc{x, y}
 	}))
+	ulua.L.SetField(pkg, "SLoc", luar.New(ulua.L, func(line, row int) display.SLoc {
+		return display.SLoc{line, row}
+	}))
 	ulua.L.SetField(pkg, "BTDefault", luar.New(ulua.L, buffer.BTDefault.Kind))
 	ulua.L.SetField(pkg, "BTHelp", luar.New(ulua.L, buffer.BTHelp.Kind))
 	ulua.L.SetField(pkg, "BTLog", luar.New(ulua.L, buffer.BTLog.Kind))
@@ -141,6 +147,9 @@ func luaImportMicroUtil() *lua.LTable {
 	ulua.L.SetField(pkg, "GetLeadingWhitespace", luar.New(ulua.L, util.LuaGetLeadingWhitespace))
 	ulua.L.SetField(pkg, "IsWordChar", luar.New(ulua.L, util.LuaIsWordChar))
 	ulua.L.SetField(pkg, "String", luar.New(ulua.L, util.String))
+	ulua.L.SetField(pkg, "Unzip", luar.New(ulua.L, util.Unzip))
+	ulua.L.SetField(pkg, "Version", luar.New(ulua.L, util.Version))
+	ulua.L.SetField(pkg, "SemVersion", luar.New(ulua.L, util.SemVersion))
 	ulua.L.SetField(pkg, "CharacterCountInString", luar.New(ulua.L, util.CharacterCountInString))
 	ulua.L.SetField(pkg, "RuneStr", luar.New(ulua.L, func(r rune) string {
 		return string(r)
