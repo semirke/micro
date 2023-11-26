@@ -288,9 +288,6 @@ func (i *InfoWindow) Display() {
 			statusLineStyle = style
 		}
 		keymenuOffset := 0
-		if config.GetGlobalOption("keymenu").(bool) {
-			keymenuOffset = len(keydisplay)
-		}
 
 		draw := func(r rune, s tcell.Style) {
 			y := i.Y - keymenuOffset - 1
