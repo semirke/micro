@@ -167,6 +167,8 @@ StartOfLine
 EndOfLine
 ParagraphPrevious
 ParagraphNext
+SelectParagraphPrevious
+SelectParagraphNext
 ToggleHelp
 ToggleRuler
 JumpLine
