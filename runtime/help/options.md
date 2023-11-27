@@ -3,12 +3,12 @@
 Micro stores all of the user configuration in its configuration directory.
 
 Micro uses the `$XDG_CONFIG_HOME/micro` as the configuration directory. As per
-the XDG spec, if `$XDG_CONFIG_HOME` is not set, `~/.config/micro` is used as 
+the XDG spec, if `$XDG_CONFIG_HOME` is not set, `~/.config/micro` is used as
 the config directory.
 
 Here are the options that you can set:
 
-* `autoindent`: when creating a new line use the same indentation as the 
+* `autoindent`: when creating a new line use the same indentation as the
    previous line.
 
 	default value: `on`
@@ -26,7 +26,7 @@ Here are the options that you can set:
 
 	default value: `0`
 
-* `colorscheme`: loads the colorscheme stored in 
+* `colorscheme`: loads the colorscheme stored in
    $(configDir)/colorschemes/`option`.micro, This setting is `global only`.
 
 	default value: `default`
@@ -34,7 +34,7 @@ Here are the options that you can set:
 	Note that the default colorschemes (default, solarized, and solarized-tc)
 	are not located in configDir, because they are embedded in the micro binary.
 
-	The colorscheme can be selected from all the files in the 
+	The colorscheme can be selected from all the files in the
 	~/.config/micro/colorschemes/ directory. Micro comes by default with
 	three colorschemes:
 
@@ -45,6 +45,10 @@ Here are the options that you can set:
    (the color is defined by the colorscheme you are using).
 
 	default value: `on`
+
+* `cursornum`: highlight the row number at the cursor. Uses the color of cursor-line.
+
+   default value: `on`
 
 * `eofnewline`: micro will automatically add a newline to the file.
 
@@ -88,7 +92,7 @@ Here are the options that you can set:
    on/off via the `ToggleHighlightSearch` action. Note that these actions don't
    change the `hlsearch` setting. As long as `hlsearch` is set to true, the next
    search will have the highlighting turned on again.
-	
+
 	default value: `on`
 
 * `hltaberrors`: highlight tabs when spaces are expected, and spaces when tabs
@@ -211,9 +215,9 @@ Here are the options that you can set:
 
 * `relativeruler`: make line numbers display relatively. If set to true, all
    lines except for the line that the cursor is located will display the distance
-   from the cursor's line. 
+   from the cursor's line.
 
-	default value: `false` 
+	default value: `false`
 
 * `savecursor`: remember where the cursor was last time the file was opened and
    put it there when you open the file again.
@@ -304,25 +308,25 @@ Here are the options that you can set:
 
 	default value: `4`
 
-* `numberedtabs`: Display the tab's number beside it in the tab bar.  
+* `numberedtabs`: Display the tab's number beside it in the tab bar.
 	default value: `on`
 
-* `showclock`: Display a clock in the status line. 
+* `showclock`: Display a clock in the status line.
 	(May be off by up to 20 seconds to save on performance. )
-	*Note:* Setting this causes micro to redraw the screen at least 4 times a 
+	*Note:* Setting this causes micro to redraw the screen at least 4 times a
 	minute, instead of just when it receives input. Hence why it is off by default.
-	
+
 	default value: `off`
 
 * `12hourclock`: Display time in a 12-hour format, rather than the default 24-hour.
 
 	default value: `off`
-	
-* `showseconds`: Display seconds in the status line clock. 
+
+* `showseconds`: Display seconds in the status line clock.
 	(This is a bit more resource intensive as it redraws the screen every second.)
-	
+
 	default value: `off`
-	
+
 * `termtitle`: defines whether or not your terminal's title will be set by micro when opened.
 	default value: `off`
 
@@ -362,8 +366,8 @@ Default plugin options:
 
 	default value: `on`
 
-Any option you set in the editor will be saved to the file 
-~/.config/micro/settings.json so, in effect, your configuration file will be 
+Any option you set in the editor will be saved to the file
+~/.config/micro/settings.json so, in effect, your configuration file will be
 created for you. If you'd like to take your configuration with you to another
 machine, simply copy the settings.json to the other machine.
 

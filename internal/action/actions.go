@@ -806,6 +806,7 @@ func (h *BufPane) SaveCB(action string, callback func()) bool {
 	} else {
 		noPrompt := h.saveBufToFile(h.Buf.Path, action, callback)
 		if noPrompt {
+			h.Buf.SetDiffBase(h.Buf.Bytes())
 			return true
 		}
 	}
@@ -950,9 +951,19 @@ func (h *BufPane) Search(str string, useRegex bool, searchDown bool) error {
 
 func (h *BufPane) find(useRegex bool) bool {
 	h.searchOrig = h.Cursor.Loc
-	prompt := "Find: "
+
+	// Use last saved local or global search as default
+	lastSearch := ""
+	if h.Buf.LastSearch != "" {
+		lastSearch = h.Buf.LastSearch
+	} else if LastSearch != "" {
+		// Look for global last search
+		lastSearch = LastSearch
+	}
+
+	prompt := "Find [" + lastSearch + "]: "
 	if useRegex {
-		prompt = "Find (regex): "
+		prompt = "Find (regex) [" + lastSearch + "]: "
 	}
 	var eventCallback func(resp string)
 	if h.Buf.Settings["incsearch"].(bool) {
@@ -973,6 +984,17 @@ func (h *BufPane) find(useRegex bool) bool {
 	findCallback := func(resp string, canceled bool) {
 		// Finished callback
 		if !canceled {
+			if resp == "" {
+				if h.Buf.LastSearch != "" {
+					resp = h.Buf.LastSearch
+				} else if LastSearch != "" {
+					// Look for global last search
+					resp = LastSearch
+				}
+			} else {
+				LastSearch = resp
+			}
+
 			match, found, err := h.Buf.FindNext(resp, h.Buf.Start(), h.Buf.End(), h.searchOrig, true, useRegex)
 			if err != nil {
 				InfoBar.Error(err)
@@ -1027,6 +1049,13 @@ func (h *BufPane) FindNext() bool {
 	if h.Cursor.HasSelection() {
 		searchLoc = h.Cursor.CurSelection[1]
 	}
+	if h.Buf.LastSearch == "" {
+		if LastSearch != "" {
+			// Look for global last search
+			h.Buf.LastSearch = LastSearch
+		}
+	}
+
 	match, found, err := h.Buf.FindNext(h.Buf.LastSearch, h.Buf.Start(), h.Buf.End(), searchLoc, true, h.Buf.LastSearchRegex)
 	if err != nil {
 		InfoBar.Error(err)

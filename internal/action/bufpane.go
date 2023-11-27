@@ -500,7 +500,7 @@ func (h *BufPane) HandleEvent(event tcell.Event) {
 		none := true
 		for _, m := range h.Buf.Messages {
 			if c.Y == m.Start.Y || c.Y == m.End.Y {
-				InfoBar.GutterMessage(m.Msg)
+				InfoBar.GutterMessage("(" + m.Owner + ") " + m.Msg)
 				none = false
 				break
 			}

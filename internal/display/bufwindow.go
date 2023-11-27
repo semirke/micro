@@ -140,8 +140,9 @@ func (w *BufWindow) updateDisplayInfo() {
 		w.gutterOffset += 2
 	}
 	if b.Settings["diffgutter"].(bool) {
-		w.gutterOffset++
+		w.gutterOffset += 1
 	}
+
 	if b.Settings["ruler"].(bool) {
 		w.gutterOffset += w.maxLineNumLength + 1
 	}
@@ -287,16 +288,20 @@ func (w *BufWindow) drawDiffGutter(backgroundStyle tcell.Style, softwrapped bool
 	symbol := ' '
 	styleName := ""
 
+	// Overrode symbole bc it causes trouble in some terminals
 	switch w.Buf.DiffStatus(bloc.Y) {
 	case buffer.DSAdded:
 		symbol = '\u258C' // Left half block
+		symbol = '#'
 		styleName = "diff-added"
 	case buffer.DSModified:
 		symbol = '\u258C' // Left half block
+		symbol = '#'
 		styleName = "diff-modified"
 	case buffer.DSDeletedAbove:
 		if !softwrapped {
 			symbol = '\u2594' // Upper one eighth block
+			symbol = '#'
 			styleName = "diff-deleted"
 		}
 	}
@@ -476,6 +481,12 @@ func (w *BufWindow) displayBuffer() {
 			}
 
 			if b.Settings["ruler"].(bool) {
+				if currentLine && w.Buf.Settings["cursornum"].(bool) {
+					if ss, ok := config.Colorscheme["cursor-line"]; ok {
+						fg, _, _ := ss.Decompose()
+						s = s.Background(fg)
+					}
+				}
 				w.drawLineNum(s, false, &vloc, &bloc)
 			}
 		} else {
@@ -628,7 +639,14 @@ func (w *BufWindow) displayBuffer() {
 
 			// This will draw an empty line number because the current line is wrapped
 			if b.Settings["ruler"].(bool) {
-				w.drawLineNum(lineNumStyle, true, &vloc, &bloc)
+				s := lineNumStyle
+				if currentLine && w.Buf.Settings["cursornum"].(bool) {
+					if ss, ok := config.Colorscheme["cursor-line"]; ok {
+						fg, _, _ := ss.Decompose()
+						s = s.Background(fg)
+					}
+				}
+				w.drawLineNum(s, true, &vloc, &bloc)
 			}
 		}
 

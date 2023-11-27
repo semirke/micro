@@ -8,6 +8,10 @@ var InfoBar *InfoPane
 // LogBufPane is a global log buffer.
 var LogBufPane *BufPane
 
+// LastSearch is a global store for last find prompt
+// We'll use it to findNext in case the Find prompt was empty
+var LastSearch string
+
 // InitGlobals initializes the log buffer and the info bar
 func InitGlobals() {
 	InfoBar = NewInfoBar()
