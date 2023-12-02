@@ -959,6 +959,10 @@ func (h *BufPane) find(useRegex bool) bool {
 	} else if LastSearch != "" {
 		// Look for global last search
 		lastSearch = LastSearch
+	} else {
+		// Use the word under the cursor
+		lastSearch = string(h.Buf.WordAt(h.Cursor.Loc))
+		h.Buf.LastSearch = lastSearch
 	}
 
 	prompt := "Find [" + lastSearch + "]: "
@@ -1411,6 +1415,43 @@ func (h *BufPane) JumpLine() bool {
 			h.HandleCommand(resp)
 		}
 	})
+	return true
+}
+
+// JumpNextMessage jumpst to the next linter message
+func (h *BufPane) JumpNextMessage() bool {
+	b := h.Buf
+
+	InfoBar.Message("jumpiing")
+
+	found := false
+	// Messages are not sorted, so look for the nearest
+	minDiff := 0
+	if len(b.Messages) > 0 {
+		line := 0
+		for _, m := range b.Messages {
+			diff := m.Start.Y - h.Cursor.Loc.Y
+			if diff > 0 {
+				if minDiff <= 0 || diff < minDiff {
+					minDiff = diff
+					line = m.Start.Y
+				}
+			}
+		}
+		// Found one, jump
+		if minDiff > 0 {
+			h.Cursor.GotoLoc(buffer.Loc{0, line})
+			h.Cursor.Relocate()
+			found = true
+		}
+	}
+
+	if !found {
+		InfoBar.Message("No more messages.")
+	} else {
+		h.Relocate()
+	}
+
 	return true
 }
 
