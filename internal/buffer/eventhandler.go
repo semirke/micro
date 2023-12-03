@@ -112,15 +112,32 @@ func (eh *EventHandler) DoTextEvent(t *TextEvent, useUndo bool) {
 	}
 }
 
+// Counts LineFeeds (ascii 10)
+func CountNL(bytearr []byte) (int){
+	l := 0
+	for _, b := range bytearr {
+		if b == 10 {
+			l++
+		}
+	}
+	return l
+}
+
 // ExecuteTextEvent runs a text event
 func ExecuteTextEvent(t *TextEvent, buf *SharedBuffer) {
+	// Check for new lines and move Message markers
+	var ls [][5]int
+
 	if t.EventType == TextEventInsert {
 		for _, d := range t.Deltas {
 			buf.insert(d.Start, d.Text)
+			ls = append(ls, [5]int{CountNL(d.Text), d.Start.X, d.Start.Y, d.End.X, d.End.Y})
 		}
 	} else if t.EventType == TextEventRemove {
 		for i, d := range t.Deltas {
 			t.Deltas[i].Text = buf.remove(d.Start, d.End)
+			ls = append(ls, [5]int{-1*CountNL(t.Deltas[i].Text), d.Start.X, d.Start.Y,
+						d.End.X, d.End.Y})
 		}
 	} else if t.EventType == TextEventReplace {
 		for i, d := range t.Deltas {
@@ -133,6 +150,88 @@ func ExecuteTextEvent(t *TextEvent, buf *SharedBuffer) {
 			t.Deltas[i], t.Deltas[j] = t.Deltas[j], t.Deltas[i]
 		}
 	}
+	const (
+		MM_matchcnt int = 0
+		MM_StartX       = 1
+		MM_StartY       = 2
+		MM_EndX         = 3
+		MM_EndY         = 4
+	)
+	// Moving affected message markers
+	for _, le := range ls {
+		if le[MM_matchcnt] != 0 && len(buf.Messages) > 0 {
+			len_msgs := len(buf.Messages)
+			for i:= 0; i < len_msgs; i++ {
+
+				// TODO test with not full line markers
+				if le[MM_matchcnt] < 0 {
+					// When deleted NL is before marker OR
+					// same line as marker but after or same palce as
+					// marker in line
+
+					// When deleting we get same line start Y next line end.x 0
+					// for full line msg.both.X is always -1
+					// sor végén saját sor és köv sor x0
+					// sor elején előző osr és saját sor x0
+					// akkor töröljük hát ez egy jó kérdés....
+					// marker akkor törlünk, ha start x 0 és y egyezik
+					if (buf.Messages[i].Start.Y == le[MM_StartY] &&
+							0 == le[MM_StartX]) {
+						buf.Messages[i].Start.Y = -1
+						continue
+					}
+
+					if buf.Messages[i].Start.Y > le[MM_StartY] {
+
+						buf.Messages[i].Start.Y += le[MM_matchcnt]
+					}
+					if buf.Messages[i].End.Y >= le[MM_EndY] {
+
+						buf.Messages[i].End.Y += le[MM_matchcnt]
+					}
+				} else {
+					// When inserted NL before marker OR
+					// same line as marker but before marker in line
+					if buf.Messages[i].Start.Y > le[MM_StartY] ||
+							(buf.Messages[i].Start.Y == le[MM_StartY] &&
+							buf.Messages[i].Start.X <= le[MM_StartX]) {
+
+						buf.Messages[i].Start.Y += le[MM_matchcnt]
+						if le[MM_EndY] == 0 {	// this was a single char
+							buf.Messages[i].End.Y += le[MM_matchcnt]
+						}
+
+					}
+					if buf.Messages[i].End.Y > le[MM_EndY] && le[MM_EndY] > 0||
+							(buf.Messages[i].End.Y == le[MM_EndY] && le[MM_EndY] > 0 &&
+							buf.Messages[i].End.X <= le[MM_EndX]) {
+
+						buf.Messages[i].End.Y += le[MM_matchcnt]
+					}
+				}
+
+			}
+
+			i:=0
+			for true {
+				found := false
+				for i=i ; i<len(buf.Messages); i++ {
+					if buf.Messages[i].Start.Y == -1 {
+						copy(buf.Messages[i:], buf.Messages[i+1:])
+						buf.Messages[len(buf.Messages)-1] = nil
+						buf.Messages = buf.Messages[:len(buf.Messages)-1]
+						found = true
+						break
+					}
+				}
+				if !found {
+					break
+				}
+
+			}
+		}
+	}
+
 }
 
 // UndoTextEvent undoes a text event
