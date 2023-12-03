@@ -2,6 +2,7 @@ package display
 
 import (
 	"strconv"
+	"fmt"
 
 	runewidth "github.com/mattn/go-runewidth"
 	"github.com/zyedidia/micro/v2/internal/buffer"
@@ -292,7 +293,7 @@ func (w *BufWindow) drawDiffGutter(backgroundStyle tcell.Style, softwrapped bool
 	switch w.Buf.DiffStatus(bloc.Y) {
 	case buffer.DSAdded:
 		symbol = '\u258C' // Left half block
-		symbol = '#'
+		symbol = '+'
 		styleName = "diff-added"
 	case buffer.DSModified:
 		symbol = '\u258C' // Left half block
@@ -301,7 +302,7 @@ func (w *BufWindow) drawDiffGutter(backgroundStyle tcell.Style, softwrapped bool
 	case buffer.DSDeletedAbove:
 		if !softwrapped {
 			symbol = '\u2594' // Upper one eighth block
-			symbol = '#'
+			symbol = '-'
 			styleName = "diff-deleted"
 		}
 	}
@@ -392,6 +393,15 @@ func (w *BufWindow) displayBuffer() {
 			})
 		}
 		b.ModifiedThisFrame = false
+	}
+
+	for _, c := range b.GetCursors() {
+		if (c.HasSelection()) {
+			break
+		}
+		b.LastWord = string(b.WordAt(c.Loc))
+		break
+
 	}
 
 	var matchingBraces []buffer.Loc
@@ -510,11 +520,26 @@ func (w *BufWindow) displayBuffer() {
 		draw := func(r rune, combc []rune, style tcell.Style, highlight bool, showcursor bool) {
 			if nColsBeforeStart <= 0 && vloc.Y >= 0 {
 				if highlight {
-					if w.Buf.HighlightSearch && w.Buf.SearchMatch(bloc) {
-						style = config.DefStyle.Reverse(true)
-						if s, ok := config.Colorscheme["hlsearch"]; ok {
-							style = s
+
+					mt := b.SearchMatch(bloc)
+					if b.Settings["hlsearch"].(bool) && mt != 0 {
+
+						if mt == 1 && w.Buf.HighlightSearch {
+							if s, ok := config.Colorscheme["hlsearch"]; ok {
+								style = config.DefStyle.Reverse(true)
+								style = s
+							}
 						}
+						if mt == 2 {
+							if s, ok := config.Colorscheme["hlwordat"]; ok {
+								fg, _ , _ := s.Decompose()
+								style = style.Background(fg)
+							} else {
+								style = style.Background(tcell.ColorWhite)
+								style = style.Foreground(tcell.ColorBlack)
+							}
+						}
+
 					}
 
 					_, origBg, _ := style.Decompose()
@@ -621,6 +646,22 @@ func (w *BufWindow) displayBuffer() {
 						}
 					}
 				}
+
+				c := b.GetActiveCursor()
+				// We are at the cursor and buffer is in AutoComplete mode
+				if c.X == bloc.X && c.Y == bloc.Y && b.HasSuggestions {
+					style = config.DefStyle.Reverse(true)
+					if s, ok := config.Colorscheme["selection"]; ok {
+						style = s
+					}
+					suggestedWord := []rune(b.Completions[b.CurSuggestion])
+					for x := 0; x < len(suggestedWord); x++ {
+						screen.SetContent(w.X+vloc.X, w.Y+vloc.Y, suggestedWord[x], nil, style)
+						vloc.X++
+					}
+				fmt.Printf("")
+				}
+
 			}
 			if nColsBeforeStart <= 0 {
 				vloc.X++
