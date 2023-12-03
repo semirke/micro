@@ -49,14 +49,20 @@ func (b *Buffer) CycleAutocomplete(forward bool) {
 		b.CurSuggestion = len(b.Suggestions) - 1
 	}
 
-	c := b.GetActiveCursor()
-	start := c.Loc
-	end := c.Loc
-	if prevSuggestion < len(b.Suggestions) && prevSuggestion >= 0 {
-		start = end.Move(-util.CharacterCountInString(b.Completions[prevSuggestion]), b)
+	// Print if we have only one matching suggestions
+	// (if not it breaks that case)
+	if len(b.Suggestions) == 1 {
+		c := b.GetActiveCursor()
+		start := c.Loc
+		end := c.Loc
+
+		if prevSuggestion < len(b.Suggestions) && prevSuggestion >= 0 {
+			start = end.Move(-util.CharacterCountInString(b.Completions[prevSuggestion]), b)
+		}
+
+		b.Replace(start, end, b.Completions[b.CurSuggestion])
 	}
 
-	b.Replace(start, end, b.Completions[b.CurSuggestion])
 	if len(b.Suggestions) > 1 {
 		b.HasSuggestions = true
 	}
@@ -101,7 +107,7 @@ func GetArg(b *Buffer) (string, int) {
 	return input, argstart
 }
 
-// FileComplete autocompletes filenames
+// FileCofmplete autocompletes filenames
 func FileComplete(b *Buffer) ([]string, []string) {
 	c := b.GetActiveCursor()
 	input, argstart := GetArg(b)
