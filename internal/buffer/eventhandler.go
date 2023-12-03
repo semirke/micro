@@ -45,6 +45,18 @@ type Delta struct {
 func (eh *EventHandler) DoTextEvent(t *TextEvent, useUndo bool) {
 	oldl := eh.buf.LinesNum()
 
+	if len(t.Deltas) == 1 {
+		d := t.Deltas[0]
+		if eh.buf.HasSuggestions && len(d.Text) == 1 && util.IsNonAlphaNumeric(rune(d.Text[0])) {
+			// We were in AutoComplete mode and got a non alphanumerical char
+			// that means we accept the suggestion
+			sugg := []byte(eh.buf.Completions[eh.buf.CurSuggestion])
+			t.Deltas[0].Text = append(sugg , d.Text...)
+			//c := b.GetActiveCursor()
+			//c.GotoLoc(Loc{pos.X + len(sugg), pos.Y})
+		}
+	}
+
 	if useUndo {
 		eh.Execute(t)
 	} else {
