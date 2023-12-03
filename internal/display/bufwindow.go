@@ -2,7 +2,6 @@ package display
 
 import (
 	"strconv"
-	"fmt"
 
 	runewidth "github.com/mattn/go-runewidth"
 	"github.com/zyedidia/micro/v2/internal/buffer"
@@ -659,7 +658,6 @@ func (w *BufWindow) displayBuffer() {
 						screen.SetContent(w.X+vloc.X, w.Y+vloc.Y, suggestedWord[x], nil, style)
 						vloc.X++
 					}
-				fmt.Printf("")
 				}
 
 			}
