@@ -38,6 +38,9 @@ var (
 	// LogBuf is a reference to the log buffer which can be opened with the
 	// `> log` command
 	LogBuf *Buffer
+
+	// Shared buffer for tag completion
+	TagBuffer *TagMap
 )
 
 // The BufType defines what kind of buffer this is
@@ -57,13 +60,17 @@ var (
 	BTLog = BufType{2, true, true, false}
 	// BTScratch is a buffer that cannot be saved (for scratch work)
 	BTScratch = BufType{3, false, true, false}
-	// BTRaw is is a buffer that shows raw terminal events
+	// BTRaw is a buffer that shows raw terminal events
 	BTRaw = BufType{4, false, true, false}
 	// BTInfo is a buffer for inputting information
 	BTInfo = BufType{5, false, true, false}
 	// BTStdout is a buffer that only writes to stdout
 	// when closed
 	BTStdout = BufType{6, false, true, true}
+	// BTDiff is a buffer that holds file diff
+	// special because the cursor line gets locked with
+	// the PaneBuf it originates from
+	BTDiff = BufType{7, true, true, true}
 
 	// ErrFileTooLarge is returned when the file is too large to hash
 	// (fastdirty is automatically enabled)
@@ -208,6 +215,9 @@ type Buffer struct {
 
 	// Last search stores the last successful search
 	LastSearch      string
+	// Contains the word we are standing on
+	LastWord        string
+	// True if the search was a regex
 	LastSearchRegex bool
 	// HighlightSearch enables highlighting all instances of the last successful search
 	HighlightSearch bool
@@ -282,12 +292,18 @@ func NewBufferFromFile(path string, btype BufType) (*Buffer, error) {
 
 // NewBufferFromStringAtLoc creates a new buffer containing the given string with a cursor loc
 func NewBufferFromStringAtLoc(text, path string, btype BufType, cursorLoc Loc) *Buffer {
-	return NewBuffer(strings.NewReader(text), int64(len(text)), path, cursorLoc, btype)
+	b := NewBuffer(strings.NewReader(text), int64(len(text)), path, cursorLoc, btype)
+	// We are without original file so let's create a backup instantly
+	b.RequestBackup()
+	return b
 }
 
 // NewBufferFromString creates a new buffer containing the given string
 func NewBufferFromString(text, path string, btype BufType) *Buffer {
-	return NewBuffer(strings.NewReader(text), int64(len(text)), path, Loc{-1, -1}, btype)
+	b := NewBuffer(strings.NewReader(text), int64(len(text)), path, Loc{-1, -1}, btype)
+	// We are without original file so let's create a backup instantly
+	b.RequestBackup()
+	return b
 }
 
 // NewBuffer creates a new buffer from a given reader with a given path
@@ -1007,6 +1023,11 @@ func (b *Buffer) FindMatchingBrace(braceType [2]rune, start Loc) (Loc, bool, boo
 	if start.X-1 >= 0 && start.X-1 < len(curLine) {
 		leftChar = curLine[start.X-1]
 	}
+	// IMHO leftchar makes this feature confusing when dealing
+	// with lots of closings, like if ... { someA(sombeB(someC))}
+	// So "disabling" it. I propose to deprecate it and remove.
+	leftChar = ' '
+
 	var i int
 	if startChar == braceType[0] || leftChar == braceType[0] {
 		for y := start.Y; y < b.LinesNum(); y++ {
@@ -1090,6 +1111,35 @@ func (b *Buffer) Retab() {
 
 	b.isModified = dirty
 }
+
+// Retab changes all tabs to spaces or vice versa
+// between the specified locations
+func (b *Buffer) RetabBlock(Start Loc, End Loc) {
+	toSpaces := b.Settings["tabstospaces"].(bool)
+	tabsize := util.IntOpt(b.Settings["tabsize"])
+	dirty := false
+
+	for i := Start.Y; (i < b.LinesNum() && i < End.Y); i++ {
+		l := b.LineBytes(i)
+
+		ws := util.GetLeadingWhitespace(l)
+		if len(ws) != 0 {
+			if toSpaces {
+				ws = bytes.ReplaceAll(ws, []byte{'\t'}, bytes.Repeat([]byte{' '}, tabsize))
+			} else {
+				ws = bytes.ReplaceAll(ws, bytes.Repeat([]byte{' '}, tabsize), []byte{'\t'})
+			}
+		}
+
+		l = bytes.TrimLeft(l, " \t")
+		b.lines[i].data = append(ws, l...)
+		b.MarkModified(i, i)
+		dirty = true
+	}
+
+	b.isModified = dirty
+}
+
 
 // ParseCursorLocation turns a cursor location like 10:5 (LINE:COL)
 // into a loc
@@ -1258,7 +1308,8 @@ func (b *Buffer) FindNextDiffLine(startLine int, forward bool) (int, error) {
 
 // SearchMatch returns true if the given location is within a match of the last search.
 // It is used for search highlighting
-func (b *Buffer) SearchMatch(pos Loc) bool {
+// Returns match type
+func (b *Buffer) SearchMatch(pos Loc) int {
 	return b.LineArray.SearchMatch(b, pos)
 }
 
