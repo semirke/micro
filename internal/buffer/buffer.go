@@ -292,18 +292,12 @@ func NewBufferFromFile(path string, btype BufType) (*Buffer, error) {
 
 // NewBufferFromStringAtLoc creates a new buffer containing the given string with a cursor loc
 func NewBufferFromStringAtLoc(text, path string, btype BufType, cursorLoc Loc) *Buffer {
-	b := NewBuffer(strings.NewReader(text), int64(len(text)), path, cursorLoc, btype)
-	// We are without original file so let's create a backup instantly
-	b.RequestBackup()
-	return b
+	return NewBuffer(strings.NewReader(text), int64(len(text)), path, cursorLoc, btype)
 }
 
 // NewBufferFromString creates a new buffer containing the given string
 func NewBufferFromString(text, path string, btype BufType) *Buffer {
-	b := NewBuffer(strings.NewReader(text), int64(len(text)), path, Loc{-1, -1}, btype)
-	// We are without original file so let's create a backup instantly
-	b.RequestBackup()
-	return b
+	return NewBuffer(strings.NewReader(text), int64(len(text)), path, Loc{-1, -1}, btype)
 }
 
 // NewBuffer creates a new buffer from a given reader with a given path
@@ -387,6 +381,14 @@ func NewBuffer(r io.Reader, size int64, path string, startcursor Loc, btype BufT
 			}
 
 			b.LineArray = NewLineArray(uint64(size), ff, reader)
+
+			// check if we are a scratch buffer
+			_ , error := os.Stat(b.AbsPath)
+
+			if os.IsNotExist(error) {
+				// Create instant backup
+				b.Backup()
+			}
 		}
 		b.EventHandler = NewEventHandler(b.SharedBuffer, b.cursors)
 
