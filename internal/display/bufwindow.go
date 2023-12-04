@@ -522,6 +522,7 @@ func (w *BufWindow) displayBuffer() {
 
 					mt := b.SearchMatch(bloc)
 					if b.Settings["hlsearch"].(bool) && mt != 0 {
+						style = config.DefStyle.Reverse(true)
 
 						if mt == 1 && w.Buf.HighlightSearch {
 							if s, ok := config.Colorscheme["hlsearch"]; ok {
@@ -549,6 +550,7 @@ func (w *BufWindow) displayBuffer() {
 					dontOverrideBackground := origBg != defBg
 
 					if b.Settings["hltaberrors"].(bool) {
+						style = config.DefStyle.Reverse(true)
 						if s, ok := config.Colorscheme["tab-error"]; ok {
 							isTab := (r == '\t') || (r == ' ' && !showcursor)
 							if (b.Settings["tabstospaces"].(bool) && isTab) ||
@@ -561,6 +563,7 @@ func (w *BufWindow) displayBuffer() {
 					}
 
 					if b.Settings["hltrailingws"].(bool) {
+						style = config.DefStyle.Reverse(true)
 						if s, ok := config.Colorscheme["trailingws"]; ok {
 							if bloc.X >= trailingwsStart && bloc.X < blineLen {
 								hl := true
@@ -593,6 +596,7 @@ func (w *BufWindow) displayBuffer() {
 
 						if b.Settings["cursorline"].(bool) && w.active && !dontOverrideBackground &&
 							!c.HasSelection() && c.Y == bloc.Y {
+							style = config.DefStyle.Reverse(true)
 							if s, ok := config.Colorscheme["cursor-line"]; ok {
 								fg, _, _ := s.Decompose()
 								style = style.Background(fg)
