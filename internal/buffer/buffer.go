@@ -6,9 +6,11 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+//	"encoding/json"
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -382,13 +384,6 @@ func NewBuffer(r io.Reader, size int64, path string, startcursor Loc, btype BufT
 
 			b.LineArray = NewLineArray(uint64(size), ff, reader)
 
-			// check if we are a scratch buffer
-			_ , error := os.Stat(b.AbsPath)
-
-			if os.IsNotExist(error) {
-				// Create instant backup
-				b.Backup()
-			}
 		}
 		b.EventHandler = NewEventHandler(b.SharedBuffer, b.cursors)
 
@@ -414,6 +409,45 @@ func NewBuffer(r io.Reader, size int64, path string, startcursor Loc, btype BufT
 	if _, err := os.Stat(filepath.Join(config.ConfigDir, "buffers")); os.IsNotExist(err) {
 		os.Mkdir(filepath.Join(config.ConfigDir, "buffers"), os.ModePerm)
 	}
+
+	// check if we are a scratch buffer
+	_ , error := os.Stat(b.Path)
+
+	if os.IsNotExist(error) {
+		// Create instant backup
+		b.Backup()
+	} else {
+		if b.Settings["usectags"].(bool) {
+			args := []string{"-o", "-", "--extras=+qr", "--fields=+enaimtKS"}
+
+			if b.Settings["filetype"].(string) != "off" && b.Settings["filetype"]!= "unknown" {
+				kinds := "--kinds-" + b.Settings["filetype"].(string) + "=+l"
+				args = append(args, kinds)
+			}
+
+			args = append(args, b.Path)
+
+			cmd := exec.Command("ctags", args...)
+			outputBytes := &bytes.Buffer{}
+			cmd.Stdout = outputBytes
+			cmd.Stderr = outputBytes
+			err = cmd.Start()
+			if err == nil {
+				err = cmd.Wait() // wait for command to finish
+				outstring := outputBytes.String()
+				//screen.TermMessage(outstring)
+				if TagBuffer == nil {
+					TagBuffer = NewTrieFromString(outstring)
+				} else {
+					TagBuffer.InsertFromString(outstring)
+				}
+
+			}
+			// we fail silently on err
+		}
+	}
+
+
 
 	if startcursor.X != -1 && startcursor.Y != -1 {
 		b.StartCursor = startcursor
