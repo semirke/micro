@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"bytes"
 	"path/filepath"
 	"sync/atomic"
 	"time"
@@ -18,17 +20,17 @@ const backupMsg = `A backup was detected for this file. This likely means that m
 crashed while editing this file, or another instance of micro is currently
 editing this file.
 
-The backup was created on %s, and the file is
-
+The backup was created on %s, and the file is %s
+Diff:
 %s
 
-* 'recover' will apply the backup as unsaved changes to the current buffer.
+* 'recover' (default) will apply the backup as unsaved changes to the current buffer.
   When the buffer is closed, the backup will be removed.
 * 'ignore' will ignore the backup, discarding its changes. The backup file
   will be removed.
 * 'abort' will abort the open operation, and instead open an empty buffer.
 
-Options: [r]ecover, [i]gnore, [a]bort: `
+Options: [R]ecover, [i]gnore, [a]bort: `
 
 var backupRequestChan chan *Buffer
 
@@ -117,6 +119,25 @@ func (b *Buffer) RemoveBackup() {
 	os.Remove(f)
 }
 
+// From shell package which cannot be imported bc of circular deps
+// ExecCommand executes a command using exec
+// It returns any output/errors
+func ExecCommand(name string, arg ...string) (string, error) {
+	var err error
+	cmd := exec.Command(name, arg...)
+	outputBytes := &bytes.Buffer{}
+	cmd.Stdout = outputBytes
+	cmd.Stderr = outputBytes
+	err = cmd.Start()
+	if err != nil {
+		return "", err
+	}
+	err = cmd.Wait() // wait for command to finish
+	outstring := outputBytes.String()
+	return outstring, err
+}
+
+
 // ApplyBackup applies the corresponding backup file to this buffer (if one exists)
 // Returns true if a backup was applied
 func (b *Buffer) ApplyBackup(fsize int64) (bool, bool) {
@@ -127,8 +148,16 @@ func (b *Buffer) ApplyBackup(fsize int64) (bool, bool) {
 			if err == nil {
 				defer backup.Close()
 				t := info.ModTime()
-				msg := fmt.Sprintf(backupMsg, t.Format("Mon Jan _2 at 15:04, 2006"), util.EscapePath(b.AbsPath))
-				choice := screen.TermPrompt(msg, []string{"r", "i", "a", "recover", "ignore", "abort"}, true)
+
+				diff, _ := ExecCommand("diff", "--color=always", "-u", b.AbsPath, backupfile)
+
+				msg := fmt.Sprintf(backupMsg, t.Format("Mon Jan _2 at 15:04, 2006"), util.EscapePath(b.AbsPath), diff)
+				choice := screen.TermPrompt(msg, []string{"R", "I", "A", "r", "i", "a", "recover", "ignore", "abort", ""}, true)
+
+				if choice == 9 {
+					// empty, using default recover
+					choice = 0
+				}
 
 				if choice%3 == 0 {
 					// recover
