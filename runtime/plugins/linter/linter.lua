@@ -55,6 +55,11 @@ function makeLinter(name, filetype, cmd, args, errorformat, os, whitelist, domat
     end
 end
 
+ -- for debugging; use micro -debug, and then inspect log.txt
+ local function log(msg)
+     micro.Log(("linter log: %s"):format(msg))
+ end
+
 function removeLinter(name)
     linters[name] = nil
 end
@@ -83,6 +88,7 @@ function preinit()
     makeLinter("mypy", "python", "mypy", {"%f"}, "%f:%l: %m")
     makeLinter("pylint", "python", "pylint", {"--output-format=parseable", "--reports=no", "%f"}, "%f:%l: %m")
     makeLinter("flake8", "python", "flake8", {"%f"}, "%f:%l:%c: %m")
+    makeLinter("phpcs", "php", "phpcs", {"--report=csv", "--exclude=PEAR.Commenting.FileComment,PEAR.Commenting.ClassComment,PEAR.NamingConventions.ValidFunctionName", "-snq", "%f"}, "\"%f\",%l,%c,[^,]+,\"%m\"")
     makeLinter("shfmt", "shell", "shfmt", {"%f"}, "%f:%l:%c: %m")
     makeLinter("shellcheck", "shell", "shellcheck", {"-f", "gcc", "%f"}, "%f:%l:%c:.+: %m")
     makeLinter("swiftc", "swift", "xcrun", {"swiftc", "%f"}, "%f:%l:%c:.+: %m", {"darwin"}, true)
@@ -111,7 +117,7 @@ function runLinter(buf)
     local ft = buf:FileType()
     local file = buf.Path
     local dir = "." .. util.RuneStr(os.PathSeparator) .. filepath.Dir(file)
-
+    log(("runLinter: %s\n"):format(file))
     for k, v in pairs(linters) do
         local ftmatch = ft == v.filetype
         if v.domatch then
@@ -127,6 +133,7 @@ function runLinter(buf)
         end
 
         if ftmatch then
+            log(("runLinter: found match %s\n"):format(v.filetype))
             local args = {}
             for kk, arg in pairs(v.args) do
                 args[kk] = arg:gsub("%%f", file):gsub("%%d", dir)
@@ -149,20 +156,23 @@ function lint(buf, linter, cmd, args, errorformat, loff, coff, callback)
             return
         end
     end
-
+    micro.InfoBar():Message("Started linter: " .. linter)
     shell.JobSpawn(cmd, args, nil, nil, onExit, buf, linter, errorformat, loff, coff)
 end
 
 function onExit(output, args)
     local buf, linter, errorformat, loff, coff = args[1], args[2], args[3], args[4], args[5]
     local lines = split(output, "\n")
+    log(("onExit: check %s \n"):format(output))
 
     local regex = errorformat:gsub("%%f", "(..-)"):gsub("%%l", "(%d+)"):gsub("%%c", "(%d+)"):gsub("%%m", "(.+)")
+    local msgcnt = 0
     for _,line in ipairs(lines) do
         -- Trim whitespace
         line = line:match("^%s*(.+)%s*$")
         if string.find(line, regex) then
             local file, line, col, msg = string.match(line, regex)
+            log(("onExit: %s %s %s"):format(file, line, msg))
             local hascol = true
             if not string.find(errorformat, "%%c") then
                 hascol = false
@@ -176,13 +186,16 @@ function onExit(output, args)
                     local mstart = buffer.Loc(tonumber(col-1+coff), tonumber(line-1+loff))
                     local mend = buffer.Loc(tonumber(col+coff), tonumber(line-1+loff))
                     bmsg = buffer.NewMessage(linter, msg, mstart, mend, buffer.MTError)
+                    msgcnt= msgcnt + 1
                 else
+                    msgcnt= msgcnt + 1
                     bmsg = buffer.NewMessageAtLine(linter, msg, tonumber(line+loff), buffer.MTError)
                 end
                 buf:AddMessage(bmsg)
             end
         end
-    end
+   end
+   micro.InfoBar():Message(linter .. " finished (" .. tostring(msgcnt) .." messages)")
 end
 
 function split(str, sep)
