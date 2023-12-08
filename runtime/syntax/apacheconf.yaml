@@ -27,8 +27,8 @@ rules:
     - identifier: "(MaxMemFree|MaxRequestsPerChild|MaxRequestsPerThread|MaxSpareServers|MaxSpareThreads|MaxThreads|MaxThreadsPerChild|MCacheMaxObjectCount|MCacheMaxObjectSize)"
     - identifier: "(MCacheMaxStreamingBuffer|MCacheMinObjectSize|MCacheRemovalAlgorithm|MCacheSize|MetaDir|MetaFiles|MetaSuffix|MimeMagicFile|MinSpareServers|MinSpareThreads)"
     - identifier: "(MMapFile|ModMimeUsePathInfo|MultiviewsMatch|NameVirtualHost|NoProxy|NumServers|NWSSLTrustedCerts|NWSSLUpgradeable|Options|Order|PassEnv|PidFile)"
-    - identifier: "(ProtocolEcho|Proxy|ProxyBadHeader|ProxyBlock|ProxyDomain|ProxyErrorOverride|ProxyIOBufferSize|ProxyMatch|ProxyMaxForwards|ProxyPass|ProxyPassReverse)"
-    - identifier: "(ProxyPreserveHost|ProxyReceiveBufferSize|ProxyRemote|ProxyRemoteMatch|ProxyRequests|ProxyTimeout|ProxyVia|ReadmeName|Redirect|RedirectMatch)"
+    - identifier: "(ProtocolEcho|ProxyBadHeader|ProxyBlock|ProxyDomain|ProxyErrorOverride|ProxyIOBufferSize|ProxyMatch|ProxyMaxForwards|ProxyPassReverse|ProxyPass)"
+    - identifier: "(ProxyPreserveHost|ProxyReceiveBufferSize|ProxyRemote|ProxyRemoteMatch|ProxyRequests|ProxyTimeout|ProxyVia|ReadmeName|Redirect|RedirectMatch|Proxy)"
     - identifier: "(RedirectPermanent|RedirectTemp|RemoveCharset|RemoveEncoding|RemoveHandler|RemoveInputFilter|RemoveLanguage|RemoveOutputFilter|RemoveType|RequestHeader)"
     - identifier: "(Require|RewriteBase|RewriteCond|RewriteEngine|RewriteLock|RewriteLog|RewriteLogLevel|RewriteMap|RewriteOptions|RewriteRule|RLimitCPU|RLimitMEM|RLimitNPROC)"
     - identifier: "(Satisfy|ScoreBoardFile|Script|ScriptAlias|ScriptAliasMatch|ScriptInterpreterSource|ScriptLog|ScriptLogBuffer|ScriptLogLength|ScriptSock|SecureListen)"
@@ -39,11 +39,16 @@ rules:
     - identifier: "(SSLProxyEngine|SSLProxyMachineCertificateFile|SSLProxyMachineCertificatePath|SSLProxyProtocol|SSLProxyVerify|SSLProxyVerifyDepth|SSLRandomSeed|SSLRequire)"
     - identifier: "(SSLRequireSSL|SSLSessionCache|SSLSessionCacheTimeout|SSLUserName|SSLVerifyClient|SSLVerifyDepth|StartServers|StartThreads|SuexecUserGroup|ThreadLimit)"
     - identifier: "(ThreadsPerChild|ThreadStackSize|TimeOut|TraceEnable|TransferLog|TypesConfig|UnsetEnv|UseCanonicalName|User|UserDir|VirtualDocumentRoot)"
-    - identifier: "(VirtualDocumentRootIP|VirtualHost|VirtualScriptAlias|VirtualScriptAliasIP|Win32DisableAcceptEx|XBitHack)"
     - symbol.tag: "<[^>]+>"
-    - identifier: "</?[A-Za-z]+"
+    - statement:  "(VirtualDocumentRootIP|VirtualHost|VirtualScriptAlias|VirtualScriptAliasIP|Win32DisableAcceptEx|XBitHack)"
+#    - identifier: "</?[A-Za-z]+"
     - identifier: "(<|</|>)"
 
+    - constant.specialChar: "\\b([\\d]+)\\b"
+
+    - constant.tag: "\\d+\\.\\d+\\.\\d+\\.\\d+"
+
+    - constant.string: "(https*://|ws://)"
     - constant.string:
         start: "\""
         end: "\""
