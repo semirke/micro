@@ -1,7 +1,7 @@
 filetype: sql
 
-detect: 
-    filename: "\\.sql$|sqliterc$"
+detect:
+    filename: "\\.sql$|\\.psql$|sqliterc$"
 
 rules:
     - statement: "(?i)\\b(ALL|ASC|AS|ALTER|AND|ADD|AUTO_INCREMENT)\\b"
@@ -11,7 +11,7 @@ rules:
     - statement: "(?i)\\b(ENCLOSED|ESCAPED|EXISTS|EXPLAIN)\\b"
     - statement: "(?i)\\b(FIELDS|FIELD|FLUSH|FOR|FOREIGN|FUNCTION|FROM)\\b"
     - statement: "(?i)\\b(GROUP|GRANT|HAVING)\\b"
-    - statement: "(?i)\\b(IGNORE|INDEX|INFILE|INSERT|INNER|INTO|IDENTIFIED|IN|IS|IF)\\b"
+    - statement: "(?i)\\b(IGNORE|INDEX|INFILE|INSERT|INNER|INTO|IDENTIFIED|IN|IS|LOOP|END LOOP|ELSE|END IF|IF)\\b"
     - statement: "(?i)\\b(JOIN|KEYS|KILL|KEY)\\b"
     - statement: "(?i)\\b(LEADING|LIKE|LIMIT|LINES|LOAD|LOCAL|LOCK|LOW_PRIORITY|LEFT|LANGUAGE)\\b"
     - statement: "(?i)\\b(MODIFY|NATURAL|NOT|NULL|NEXTVAL)\\b"
@@ -33,3 +33,5 @@ rules:
     - comment: "\\-\\-.*$"
     - indent-char.whitespace: "[[:space:]]+$"
     - indent-char: "	+ +| +	+"
+      # operators
+    - symbol.operator: "([~^.:;,+*|=!\\%@]|<|>|/|-|&)"
