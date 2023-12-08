@@ -6,11 +6,11 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
-//	"encoding/json"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"regexp"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -42,7 +42,7 @@ var (
 	LogBuf *Buffer
 
 	// Shared buffer for tag completion
-	TagBuffer *TagMap
+	TagBuffer   *TagMap
 )
 
 // The BufType defines what kind of buffer this is
@@ -133,16 +133,23 @@ type SharedBuffer struct {
 
 	// Hash of the original buffer -- empty if fastdirty is on
 	origHash [md5.Size]byte
+
+	// Latest tag info to display
+	TagInfo []string
+	TagInfoIdx  int
 }
 
 func (b *SharedBuffer) insert(pos Loc, value []byte) {
 	b.isModified = true
 	b.HasSuggestions = false
+	b.TagInfo=make([]string, 0)
+	b.TagInfoIdx=0
 	b.LineArray.insert(pos, value)
 
 	inslines := bytes.Count(value, []byte{'\n'})
 	b.MarkModified(pos.Y, pos.Y+inslines)
 }
+
 func (b *SharedBuffer) remove(start, end Loc) []byte {
 	b.isModified = true
 	b.HasSuggestions = false
@@ -169,6 +176,79 @@ func (b *SharedBuffer) MarkModified(start, end int) {
 	for i := start; i <= end; i++ {
 		b.LineArray.invalidateSearchMatches(i)
 	}
+}
+
+
+func (b *SharedBuffer) FindMatchingBrace(braceType [2]rune, start Loc) (Loc, bool, bool) {
+	curLine := []rune(string(b.LineBytes(start.Y)))
+	startChar := ' '
+	if start.X >= 0 && start.X < len(curLine) {
+		startChar = curLine[start.X]
+	}
+	leftChar := ' '
+	if start.X-1 >= 0 && start.X-1 < len(curLine) {
+		leftChar = curLine[start.X-1]
+	}
+	// IMHO leftchar makes this feature confusing when dealing
+	// with lots of closings, like if ... { someA(sombeB(someC))}
+	// So "disabling" it. I propose to deprecate it and remove.
+	leftChar = ' '
+
+	var i int
+	if startChar == braceType[0] || leftChar == braceType[0] {
+		for y := start.Y; y < b.LinesNum(); y++ {
+			l := []rune(string(b.LineBytes(y)))
+			xInit := 0
+			if y == start.Y {
+				if startChar == braceType[0] {
+					xInit = start.X
+				} else {
+					xInit = start.X - 1
+				}
+			}
+			for x := xInit; x < len(l); x++ {
+				r := l[x]
+				if r == braceType[0] {
+					i++
+				} else if r == braceType[1] {
+					i--
+					if i == 0 {
+						if startChar == braceType[0] {
+							return Loc{x, y}, false, true
+						}
+						return Loc{x, y}, true, true
+					}
+				}
+			}
+		}
+	} else if startChar == braceType[1] || leftChar == braceType[1] {
+		for y := start.Y; y >= 0; y-- {
+			l := []rune(string(b.lines[y].data))
+			xInit := len(l) - 1
+			if y == start.Y {
+				if leftChar == braceType[1] {
+					xInit = start.X - 1
+				} else {
+					xInit = start.X
+				}
+			}
+			for x := xInit; x >= 0; x-- {
+				r := l[x]
+				if r == braceType[0] {
+					i--
+					if i == 0 {
+						if leftChar == braceType[1] {
+							return Loc{x, y}, true, true
+						}
+						return Loc{x, y}, false, true
+					}
+				} else if r == braceType[1] {
+					i++
+				}
+			}
+		}
+	}
+	return start, true, false
 }
 
 // DisableReload disables future reloads of this sharedbuffer
@@ -223,6 +303,7 @@ type Buffer struct {
 	LastSearchRegex bool
 	// HighlightSearch enables highlighting all instances of the last successful search
 	HighlightSearch bool
+
 }
 
 // NewBufferFromFileAtLoc opens a new buffer with a given cursor location
@@ -299,7 +380,135 @@ func NewBufferFromStringAtLoc(text, path string, btype BufType, cursorLoc Loc) *
 
 // NewBufferFromString creates a new buffer containing the given string
 func NewBufferFromString(text, path string, btype BufType) *Buffer {
+	if btype == BTDiff {
+		return NewDiffFromString(text, path)
+	}
+
 	return NewBuffer(strings.NewReader(text), int64(len(text)), path, Loc{-1, -1}, btype)
+}
+
+func NewDiffFromString(text, path string) *Buffer {
+	// BTDiff is a special kind of buffer holding diff output
+	// we match it by filename, BTDiff must have the filename.ext.diff
+	// as filename
+	found := false
+	txt := ""
+	dX := 0
+	bX := 0
+	foundBuf := new(Buffer)
+
+	if len(path) > 0 {
+		ext := filepath.Ext(path)
+		fn := path[ : len(path)-len(ext)]
+
+		for _, buf := range OpenBuffers {
+			if buf.Path == fn && buf.Type != BTDiff {
+				foundBuf = buf
+				found = true
+				// Recreate current buffer with differentiated content
+				lines := strings.Split(text, "\n")
+				//buf.Settings["lockcursors"] = true
+				for ; dX < len(lines); dX++ {
+					// Search for first @@
+					line := lines[dX]
+					if len(line) == 0 {
+						continue
+					}
+//					oldline := -1
+					newline := -1
+
+					if line[0] == '@' && line[1] == '@' {
+						// We have reached a diff block
+						r, _ := regexp.Compile(`@@ [+-]*(\d+),(\d+) [+-]*(\d+),(\d+)`)
+						matched := r.FindStringSubmatch(lines[dX])
+
+						if len(matched) > 0 {
+//							oldline, _ = strconv.Atoi(matched[1])	//
+							newline, _ = strconv.Atoi(matched[3])	// diff place in buf
+						}
+						dX++
+
+						dX2 := dX
+						// Skip environment lines
+						for ; dX2 < len(lines); dX2++ {
+							if len(lines[dX2]) == 0 {
+								continue
+							}
+							if lines[dX2][0] != ' ' {
+								break
+							}
+						}
+
+						copycnt := newline + dX2 - dX -1
+
+						// Copy lines from buf up to the first difference
+						for i := bX; i < copycnt; i++ {
+							txt += buf.Line(i) + "\n"
+							bX++
+						}
+
+
+						for ; dX2 < len(lines); dX2++ {
+							if len(lines[dX2]) == 0 {
+								continue
+							}
+							if lines[dX2][0] == ' ' {
+								break
+							}
+							// handle diffs
+							delCnt := 0
+							addCnt := 0
+							if lines[dX2][0] == '-' {
+								// A line has beend removed
+								// We keep it
+								txt += lines[dX2][1:]
+
+								// we'll need to pad buf
+								delCnt++
+							}
+							if lines[dX2][0] == '+' {
+								// A line has beend added that's in buf
+								// which means our version doesnt have it
+								bX++
+								addCnt++
+							}
+
+							// padding with dec 30 lines
+							// they'll be skipped by bufwindow
+							k := (addCnt - delCnt)
+							if k > 0 {
+								for ;k >0; k-- {
+									// txt += string(byte(30)) + "\n"
+									txt += "\n"
+								}
+							}
+						}
+						dX = dX2
+					}
+
+				}
+				// Copy lines from buf up to the first difference
+				for i := bX; i < buf.LinesNum(); i++ {
+					txt += buf.Line(i) + "\n"
+				}
+
+
+				break
+			}
+		}
+	}
+
+	if !found {
+		txt = text
+	}
+
+	nb := NewBuffer(strings.NewReader(txt), int64(len(txt)), path, Loc{-1, -1}, BTDiff)
+
+	if found {
+		nb.Settings = foundBuf.Settings
+	}
+	nb.UpdateRules()
+	return nb
 }
 
 // NewBuffer creates a new buffer from a given reader with a given path
@@ -547,6 +756,33 @@ func (b *Buffer) Insert(start Loc, text string) {
 		b.EventHandler.active = b.curCursor
 		b.EventHandler.Insert(start, text)
 
+		// Reindent block if we had a closing bracket
+		if len(text) == 1 && b.Settings["autoindent"].(bool) {
+			for _, bp := range(BracePairs) {
+				pos := start
+				if rune(text[0]) == bp[1] {
+					mb, _, found := b.FindMatchingBrace(bp, pos)
+					if found {
+						if mb.Y == start.Y {
+							continue
+						}
+						mb.X = 0
+						reindented := b.ReindentBlock(BracePairs, mb, pos)
+						if !b.Type.Readonly {
+							pos.X=0
+							pos.Y++
+							b.EventHandler.Remove(mb, pos)
+							b.EventHandler.Insert(mb, reindented)
+							pos.Y--
+							pos.X = len(b.LineBytes(pos.Y))
+							b.GetActiveCursor().Loc = pos
+						}
+					}
+				}
+			}
+		}
+
+
 		b.RequestBackup()
 	}
 }
@@ -555,8 +791,8 @@ func (b *Buffer) Insert(start Loc, text string) {
 func (b *Buffer) Remove(start, end Loc) {
 	if !b.Type.Readonly {
 		b.EventHandler.cursors = b.cursors
-		b.EventHandler.active = b.curCursor
 		b.EventHandler.Remove(start, end)
+		b.EventHandler.active = b.curCursor
 
 		b.RequestBackup()
 	}
@@ -1176,6 +1412,105 @@ func (b *Buffer) RetabBlock(Start Loc, End Loc) {
 	b.isModified = dirty
 }
 
+// Only trims spaces that are at least tabsize in count
+func TabSpaceTrimLeft(input []byte, tabsize int) []byte {
+	cnt := 0
+	remove := 0
+
+	for _, ch := range(input) {
+		if ch == '\t' {
+			remove++
+			continue
+		} else if ch == ' ' {
+			cnt++
+			if cnt == tabsize {
+				remove += cnt
+				cnt = 0
+			}
+		} else {
+			break
+		}
+	}
+	return input[remove:]
+}
+
+
+// Reindents
+func (b *Buffer) ReindentBlock(bps [][2]rune, Start Loc, End Loc) string {
+	toSpaces := b.Settings["tabstospaces"].(bool)
+	tabsize := 4
+	tabsize = util.IntOpt(b.Settings["tabsize"])
+
+	outstr := ""
+
+	l := b.LineBytes(Start.Y)
+	ws := util.GetLeadingWhitespace(l)
+	depth := 0
+	if len(ws) > 0 && ws[0] == byte(' ') {
+		// indented with spaces
+		depth = len(ws) / tabsize
+	} else {
+		depth = len(ws)
+	}
+
+	for i := Start.Y; (i < b.LinesNum() && i < End.Y+1); i++ {
+		l := b.LineBytes(i)
+		ws := util.GetLeadingWhitespace(l)
+
+		l = TabSpaceTrimLeft(l, tabsize)
+		nextDepth := depth
+		for _, ch := range(l) {
+			for _, bp := range(bps) {
+				if ch == byte(bp[0]) {
+					nextDepth++
+				}
+				if ch == byte(bp[1]) {
+					nextDepth--
+					if nextDepth < 0 {
+						nextDepth = 0
+					}
+				}
+			}
+		}
+
+		// Apply depth decrease before adding tabs
+		if len(l) > 0 {
+			for _, bp := range(bps) {
+				if l[0] == byte(bp[1]) {
+					depth--
+					break
+				}
+			}
+		}
+
+		// This should not really happen, but let's not panic
+		if depth < 0 {
+			depth = 0
+		}
+
+		if toSpaces {
+			ws = bytes.Repeat([]byte{' '}, tabsize * depth)
+		} else {
+			ws = bytes.Repeat([]byte{'\t'}, depth)
+		}
+
+		line := ""
+		if len(l) > 0 {
+			line = string(append(ws, l...))
+		}
+		if b.Endings == FFDos {
+			line = line + "\r" + "\n"
+		} else {
+			line = line + "\n"
+		}
+		outstr += line
+		depth = nextDepth
+
+	}
+
+	return outstr
+}
+
 
 // ParseCursorLocation turns a cursor location like 10:5 (LINE:COL)
 // into a loc
@@ -1357,4 +1692,35 @@ func WriteLog(s string) {
 // GetLogBuf returns the log buffer
 func GetLogBuf() *Buffer {
 	return LogBuf
+}
+
+func (b *Buffer) GetTagBuffer() (*TagMap) {
+	return TagBuffer
+}
+
+// Fills TagInfo from tag records starting by `tagPrefix`
+func (b *Buffer) SetTagInfo(tagPrefix string) {
+	if TagBuffer != nil {
+
+		records := []*Record{}
+		records = TagBuffer.findAll(tagPrefix)
+
+		b.TagInfo= make([]string,0)
+
+		if len(records) > 0 {
+			if b.TagInfoIdx >= len(records) {
+				b.TagInfoIdx = 0
+			}
+
+			for _, rec := range(records) {
+				ti := "# From: "+ rec.SourceFile +" | t:" +rec.Scope +
+					" | " +rec.TagName + " " + rec.Signature
+				if rec.Typeref != "" {
+					ti += " | ret: " + rec.Typeref
+				}
+				b.TagInfo = append(b.TagInfo, ti)
+			}
+
+		}
+	}
 }
