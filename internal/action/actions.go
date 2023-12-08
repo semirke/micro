@@ -445,6 +445,19 @@ func (h *BufPane) SelectToEndOfLine() bool {
 	return true
 }
 
+// Sets current position as start of selection
+func (h *BufPane) StartSelection() bool {
+	h.StartSelectionLoc = h.Cursor.Loc
+	return true
+}
+
+// Sets current position as start of selection
+func (h *BufPane) EndSelection() bool {
+	h.Cursor.SetSelectionStart(h.StartSelectionLoc)
+	h.Cursor.SetSelectionEnd(h.Cursor.Loc)
+	return true
+}
+
 // ParagraphPrevious moves the cursor to the previous empty line, or beginning of the buffer if there's none
 func (h *BufPane) ParagraphPrevious() bool {
 	var line int
