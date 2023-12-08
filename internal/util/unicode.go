@@ -19,6 +19,7 @@ import (
 var minMark = rune(unicode.Mark.R16[0].Lo)
 
 func isMark(r rune) bool {
+	return unicode.IsMark(r)
 	// Fast path
 	if r < minMark {
 		return false
