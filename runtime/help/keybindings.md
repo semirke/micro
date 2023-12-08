@@ -50,13 +50,13 @@ save and quit you can bind it like so:
 
 ## Binding raw escape sequences
 
-Only read this section if you are interested in binding keys that aren't on the 
+Only read this section if you are interested in binding keys that aren't on the
 list of supported keys for binding.
 
 One of the drawbacks of using a terminal-based editor is that the editor must
 get all of its information about key events through the terminal. The terminal
 sends these events in the form of escape sequences often (but not always)
-starting with `0x1b`. 
+starting with `0x1b`.
 
 For example, if micro reads `\x1b[1;5D`, on most terminals this will mean the
 user pressed CtrlLeft.
@@ -95,7 +95,7 @@ Coming soon!
 
 ## Unbinding keys
 
-It is also possible to disable any of the default key bindings by use of the 
+It is also possible to disable any of the default key bindings by use of the
 `UnbindKey` action in the user's `bindings.json` file.
 
 
@@ -172,6 +172,7 @@ SelectParagraphNext
 ToggleHelp
 ToggleRuler
 JumpLine
+JumpNextMessage
 ClearStatus
 ShellMode
 CommandMode
@@ -562,7 +563,7 @@ Note: On some old terminal emulators and on Windows machines, `CtrlH` should be
 used for backspace.
 
 Additionally, alt keys can be bound by using `Alt-key`. For example `Alt-a` or
-`Alt-Up`. Micro supports an optional `-` between modifiers like `Alt` and 
+`Alt-Up`. Micro supports an optional `-` between modifiers like `Alt` and
 `Ctrl` so `Alt-a` could be rewritten as `Alta` (case matters for alt bindings).
 This is why in the default keybindings you can see `AltShiftLeft` instead of
 `Alt-ShiftLeft` (they are equivalent).
