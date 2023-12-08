@@ -144,6 +144,7 @@ func (h *BufPane) MoveCursorUp(n int) {
 			h.Cursor.Loc = h.LocFromVLoc(vloc)
 		}
 	}
+	h.SetSplitCursor()
 }
 
 // MoveCursorDown is not an action
@@ -164,6 +165,31 @@ func (h *BufPane) MoveCursorDown(n int) {
 			h.Cursor.Loc = h.LocFromVLoc(vloc)
 		}
 	}
+	h.SetSplitCursor()
+}
+
+func (h *BufPane) SetSplitCursor() {
+	// TODO config check for cursor lock
+
+	// TODO why is children empty?
+	//children := MainTab().GetNode(h.splitID).Children()
+
+	panes := make([]*BufPane, 0)
+	for _, p := range(MainTab().Panes) {
+		bp := p.(*BufPane)
+		if(bp.Buf.Path == h.Buf.Path + ".diff") {
+			panes = append(panes, bp)
+
+		}
+	}
+
+	if len(panes) > 0 {
+		for _, bp := range(panes) {
+			bp.Cursor.Loc = h.Cursor.Loc
+			bp.Relocate()
+		}
+	}
+
 }
 
 // CursorUp moves the cursor up
@@ -1370,14 +1396,19 @@ func (h *BufPane) paste(clip string) {
 func (h *BufPane) JumpToMatchingBrace() bool {
 	for _, bp := range buffer.BracePairs {
 		r := h.Cursor.RuneUnder(h.Cursor.X)
-		rl := h.Cursor.RuneUnder(h.Cursor.X - 1)
+
+		// Removed ss in Find matching brace - planning to remove
+		// rl := h.Cursor.RuneUnder(h.Cursor.X - 1)
+		rl := ' '
 		if r == bp[0] || r == bp[1] || rl == bp[0] || rl == bp[1] {
 			matchingBrace, left, found := h.Buf.FindMatchingBrace(bp, h.Cursor.Loc)
 			if found {
 				if left {
 					h.Cursor.GotoLoc(matchingBrace)
 				} else {
-					h.Cursor.GotoLoc(matchingBrace.Move(1, h.Buf))
+					// not doing the "jump next to it stuff"
+					// so we wont confuse multiple braces like a(b(c(d[""])))
+					h.Cursor.GotoLoc(matchingBrace)
 				}
 				h.Relocate()
 				return true
@@ -2001,6 +2032,16 @@ func (h *BufPane) RemoveAllMultiCursors() bool {
 	h.Buf.ClearCursors()
 	h.multiWord = false
 	h.Relocate()
+	return true
+}
+
+func (h *BufPane) TagInfoScroll() bool {
+	if h.Buf.TagInfoIdx +1 < len(h.Buf.TagInfo) {
+		h.Buf.TagInfoIdx++
+	} else {
+		h.Buf.TagInfoIdx=0
+	}
+
 	return true
 }
 
