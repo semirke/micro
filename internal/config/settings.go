@@ -298,6 +298,7 @@ var defaultCommonSettings = map[string]interface{}{
 	"mkparents":      false,
 	"permbackup":     false,
 	"readonly":       false,
+	"usectags":       true,
 	"reload":         "prompt",
 	"rmtrailingws":   false,
 	"ruler":          true,
