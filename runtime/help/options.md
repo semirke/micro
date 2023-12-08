@@ -199,6 +199,11 @@ Here are the options that you can set:
 
     default value: `false`
 
+* `usectags`: when enabled and universal ctags is available, it'll be used
+   to extract tags that'll be fed to the tags autocomplete.
+
+    default value: `true`
+
 * `reload`: controls the reload behavior of the current buffer in case the file
    has changed. The available options are `prompt`, `auto` & `disabled`.
 
