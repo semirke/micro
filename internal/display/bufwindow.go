@@ -129,6 +129,11 @@ func (w *BufWindow) updateDisplayInfo() {
 		w.bufHeight--
 	}
 
+	if len(b.TagInfo) > 0 {
+		w.bufHeight--
+	}
+
+
 	w.hasMessage = len(b.Messages) > 0
 
 	// We need to know the string length of the largest line number
@@ -376,6 +381,8 @@ func (w *BufWindow) displayBuffer() {
 
 	maxWidth := w.gutterOffset + w.bufWidth
 
+	cursorline := (b.Settings["cursorline"].(bool) && w.active ) || w.Buf.Type == buffer.BTDiff
+
 	if b.ModifiedThisFrame {
 		if b.Settings["diffgutter"].(bool) {
 			b.UpdateDiff(func(synchronous bool) {
@@ -437,7 +444,7 @@ func (w *BufWindow) displayBuffer() {
 	}
 	curNumStyle := config.DefStyle
 	if style, ok := config.Colorscheme["current-line-number"]; ok {
-		if !b.Settings["cursorline"].(bool) {
+		if !cursorline {
 			curNumStyle = lineNumStyle
 		} else {
 			curNumStyle = style
@@ -464,6 +471,7 @@ func (w *BufWindow) displayBuffer() {
 	cursors := b.GetCursors()
 
 	curStyle := config.DefStyle
+
 	for ; vloc.Y < w.bufHeight; vloc.Y++ {
 		vloc.X = 0
 
@@ -590,7 +598,7 @@ func (w *BufWindow) displayBuffer() {
 							}
 						}
 
-						if b.Settings["cursorline"].(bool) && w.active && !dontOverrideBackground &&
+						if cursorline && !dontOverrideBackground &&
 							!c.HasSelection() && c.Y == bloc.Y {
 							style = config.DefStyle.Reverse(true)
 							if s, ok := config.Colorscheme["cursor-line"]; ok {
@@ -789,7 +797,7 @@ func (w *BufWindow) displayBuffer() {
 
 		style := config.DefStyle
 		for _, c := range cursors {
-			if b.Settings["cursorline"].(bool) && w.active &&
+			if cursorline &&
 				!c.HasSelection() && c.Y == bloc.Y {
 				if s, ok := config.Colorscheme["cursor-line"]; ok {
 					fg, _, _ := s.Decompose()
@@ -817,6 +825,35 @@ func (w *BufWindow) displayBuffer() {
 		bloc.Y++
 		if bloc.Y >= b.LinesNum() {
 			break
+		}
+	}
+
+	if len(w.Buf.TagInfo) > 0 {
+		// Print tag info over the last line
+		curStyle := config.DefStyle.Reverse(true)
+
+		if style, ok := config.Colorscheme["statusline"]; ok {
+			curStyle = style
+		}
+		vloc.X = 0
+		// TODO unicode handling
+
+		txt := ""
+		if len(w.Buf.TagInfo) > 1 {
+			txt = findBinding("TagInfoScroll", true)
+			txt = " [Scroll: " + txt + "]"
+		}
+		txt = w.Buf.TagInfo[w.Buf.TagInfoIdx] + txt
+
+		runear := []rune(txt)
+		for _, ch := range runear {
+			screen.SetContent(w.X+vloc.X, w.Y+vloc.Y, ch, nil, curStyle)
+			vloc.X++
+		}
+
+		for i:= len(w.Buf.TagInfo); i<maxWidth; i++ {
+			screen.SetContent(w.X+vloc.X, w.Y+vloc.Y, rune(' '), nil, curStyle)
+			vloc.X++
 		}
 	}
 }
