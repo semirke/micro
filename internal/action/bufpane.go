@@ -238,6 +238,8 @@ type BufPane struct {
 	// remember original location of a search in case the search is canceled
 	searchOrig buffer.Loc
 
+	// Used for start/end selection
+	startSelection buffer.Loc
 	// The pane may not yet be fully initialized after its creation
 	// since we may not know the window geometry yet. In such case we finish
 	// its initialization a bit later, after the initial resize.
@@ -707,6 +709,8 @@ var BufKeyActions = map[string]BufKeyAction{
 	"SelectDown":                (*BufPane).SelectDown,
 	"SelectLeft":                (*BufPane).SelectLeft,
 	"SelectRight":               (*BufPane).SelectRight,
+	"StartSelection":            (*BufPane).StartSelection,
+	"EndSelection":              (*BufPane).EndSelection,
 	"WordRight":                 (*BufPane).WordRight,
 	"WordLeft":                  (*BufPane).WordLeft,
 	"SelectWordRight":           (*BufPane).SelectWordRight,
