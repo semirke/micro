@@ -127,9 +127,13 @@ func luaImportMicroBuffer() *lua.LTable {
 	ulua.L.SetField(pkg, "BTScratch", luar.New(ulua.L, buffer.BTScratch.Kind))
 	ulua.L.SetField(pkg, "BTRaw", luar.New(ulua.L, buffer.BTRaw.Kind))
 	ulua.L.SetField(pkg, "BTInfo", luar.New(ulua.L, buffer.BTInfo.Kind))
+	ulua.L.SetField(pkg, "BTDiff", luar.New(ulua.L, buffer.BTDiff))
 
 	ulua.L.SetField(pkg, "NewBuffer", luar.New(ulua.L, func(text, path string) *buffer.Buffer {
 		return buffer.NewBufferFromString(text, path, buffer.BTDefault)
+	}))
+	ulua.L.SetField(pkg, "NewBufferWithType", luar.New(ulua.L, func(text, path string, btype buffer.BufType) *buffer.Buffer {
+		return buffer.NewBufferFromString(text, path, btype)
 	}))
 	ulua.L.SetField(pkg, "OpenBuffer", luar.New(ulua.L, func(buf *buffer.Buffer, pane *action.BufPane)  {
 		pane.OpenBuffer(buf)
@@ -163,22 +167,22 @@ func luaImportMicroBuffer() *lua.LTable {
 
 		return action.NewTabFromBuffer(0,1, w, h - 1 - iOffset, buff)
 	}))
-	
+
 	ulua.L.SetField(pkg, "OpenFileToNewTab", luar.New(ulua.L, func(path string) (*buffer.Buffer) {
 		w, h := screen.Screen.Size()
 		iOffset := config.GetInfoBarOffset()
-		
+
 		b, err := buffer.NewBufferFromFile(path, buffer.BTDefault)
         if err != nil {
                 panic(err)
         }
-        
+
 		t := action.NewTabFromBuffer(0, 1, w, h - 1 - iOffset, b)
-		
+
 		action.Tabs.AddTab(t)
 		action.Tabs.SetActive(len(action.Tabs.List)-1)
 		return b
-		
+
 	}))
 	ulua.L.SetField(pkg, "ByteOffset", luar.New(ulua.L, buffer.ByteOffset))
 	ulua.L.SetField(pkg, "Log", luar.New(ulua.L, buffer.WriteLog))
