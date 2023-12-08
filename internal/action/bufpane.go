@@ -3,6 +3,7 @@ package action
 import (
 	"strings"
 	"time"
+//	"fmt"
 
 	luar "layeh.com/gopher-luar"
 
@@ -803,8 +804,10 @@ var BufKeyActions = map[string]BufKeyAction{
 	"SkipMultiCursor":           (*BufPane).SkipMultiCursor,
 	"JumpToMatchingBrace":       (*BufPane).JumpToMatchingBrace,
 	"JumpLine":                  (*BufPane).JumpLine,
+	"JumpNextMessage":           (*BufPane).JumpNextMessage,
 	"Deselect":                  (*BufPane).Deselect,
 	"ClearInfo":                 (*BufPane).ClearInfo,
+	"TagInfoScroll":             (*BufPane).TagInfoScroll,
 	"None":                      (*BufPane).None,
 
 	// This was changed to InsertNewline but I don't want to break backwards compatibility
