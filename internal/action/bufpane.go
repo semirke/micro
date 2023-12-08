@@ -239,7 +239,7 @@ type BufPane struct {
 	searchOrig buffer.Loc
 
 	// Used for start/end selection
-	startSelection buffer.Loc
+	StartSelectionLoc buffer.Loc
 	// The pane may not yet be fully initialized after its creation
 	// since we may not know the window geometry yet. In such case we finish
 	// its initialization a bit later, after the initial resize.
