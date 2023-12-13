@@ -183,13 +183,13 @@ func (i *InfoWindow) displayBuffer() {
 func keydisplayGen() []string {
 	return []string{
 		fmt.Sprintf("%s %s, %s %s, %s %s, %s %s, %s %s, %s %s",
-			findBinding("Quit", true), "Quit",
-			findBinding("Save", true), "Save",
 			findBinding("OpenFile", true), "Open",
-			findBinding("ToggleHelp", true), "Help",
-			findBinding("CommandMode", true), "Command Bar",
+			findBinding("Save", true), "Save",
+			findBinding("Quit", true), "Quit",
 			findBinding("CutLine", true), "Cut Line",
+			findBinding("CommandMode", true), "Command Bar",
 		),
+			findBinding("ToggleHelp", true), "Help",
 		fmt.Sprintf("%s %s, %s %s, %s %s, %s %s, %s %s, %s %s",
 			findBinding("Find", true), "Find",
 			findBinding("Undo", true), "Undo",
