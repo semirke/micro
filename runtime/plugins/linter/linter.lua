@@ -87,11 +87,12 @@ function preinit()
     makeLinter("clang", "objective-c", "xcrun", {"clang", "-fsyntax-only", "-Wall", "-Wextra", "%f"}, "%f:%l:%c:.+: %m")
     makeLinter("pyflakes", "python", "pyflakes", {"%f"}, "%f:%l:.-:? %m")
     makeLinter("mypy", "python", "mypy", {"--show-error-codes","%f"}, "%f:%l: %m")
-    makeLinter("mypy", "python2", "mypy", {"--show-error-codes","%f"}, "%f:%l: %m")
+    makeLinter("mypy2", "python2", "mypy", {"--show-error-codes","%f"}, "%f:%l: %m")
     makeLinter("pylint", "python", "pylint", {"--output-format=parseable", "--reports=no", "%f"}, "%f:%l: %m")
-    makeLinter("pylint", "python2", "pylint", {"--output-format=parseable", "--reports=no", "%f"}, "%f:%l: %m")
+    makeLinter("pylint2", "python2", "pylint", {"--output-format=parseable", "--reports=no", "%f"}, "%f:%l: %m")
     makeLinter("flake8", "python", "flake8", {"%f"}, "%f:%l:%c: %m")
     makeLinter("phpcs", "php", "phpcs", {"--report=csv", "--exclude=PEAR.Commenting.FileComment,PEAR.Commenting.ClassComment,PEAR.NamingConventions.ValidFunctionName", "-snq", "%f"}, "\"%f\",%l,%c,[^,]+,\"%m\"")
+    makeLinter("php-l", "php", "php", {"-l", "%f"}, "PHP Parse error: %m in %f on line %l")
     makeLinter("shfmt", "shell", "shfmt", {"%f"}, "%f:%l:%c: %m")
     makeLinter("shellcheck", "shell", "shellcheck", {"-f", "gcc", "%f"}, "%f:%l:%c:.+: %m")
     makeLinter("swiftc", "swift", "xcrun", {"swiftc", "%f"}, "%f:%l:%c:.+: %m", {"darwin"}, true)
@@ -168,31 +169,59 @@ function onExit(output, args)
     local lines = split(output, "\n")
     log(("onExit: check %s \n"):format(output))
 
-    local regex = errorformat:gsub("%%f", "(..-)"):gsub("%%l", "(%d+)"):gsub("%%c", "(%d+)"):gsub("%%m", "(.+)")
+    -- local regex = errorformat:gsub("%%f", "(..-)"):gsub("%%l", "(%d+)"):gsub("%%c", "(%d+)"):gsub("%%m", "(.+)")
+    local regex = errorformat:gsub("%%f", "(.+)"):gsub("%%l", "(%d+)"):gsub("%%c", "(%d+)"):gsub("%%m", "(.+)")
+    log(("onExit: regex: %s"):format(errorformat))
     local msgcnt = 0
     for _,line in ipairs(lines) do
         -- Trim whitespace
         line = line:match("^%s*(.+)%s*$")
         if string.find(line, regex) then
-            local file, line, col, msg = string.match(line, regex)
-            log(("onExit: %s %s %s"):format(file, line, msg))
+            local file, lineno, col, msg = nil
+            local match = {string.match(line, regex)}
+
+            local kk=1
+            local i=0
+            while i < string.len(errorformat) do
+                local st, ed = string.find(errorformat, "%%", i)
+                if st == nil then
+                    break
+                end
+                i = ed+1
+                local ch = errorformat:sub(st+1, st+1)
+
+                if ch == 'f' then
+                    file = match[kk]
+                elseif ch == 'c' then
+                    col = match[kk]
+                elseif ch == 'm' then
+                    msg = match[kk]
+                elseif ch == 'l' then
+                    lineno = match[kk]
+                end
+                kk = kk+ 1
+                if kk > #match then
+                    break
+                end
+            end
+
+            log(("onExit: file: %s line: %s msg: %s"):format(file, lineno, msg))
             local hascol = true
             if not string.find(errorformat, "%%c") then
                 hascol = false
-                msg = col
             elseif col == nil then
                 hascol = false
             end
             if basename(buf.Path) == basename(file) then
                 local bmsg = nil
                 if hascol then
-                    local mstart = buffer.Loc(tonumber(col-1+coff), tonumber(line-1+loff))
-                    local mend = buffer.Loc(tonumber(col+coff), tonumber(line-1+loff))
+                    local mstart = buffer.Loc(tonumber(col-1+coff), tonumber(lineno-1+loff))
+                    local mend = buffer.Loc(tonumber(col+coff), tonumber(lineno-1+loff))
                     bmsg = buffer.NewMessage(linter, msg, mstart, mend, buffer.MTError)
                     msgcnt= msgcnt + 1
                 else
                     msgcnt= msgcnt + 1
-                    bmsg = buffer.NewMessageAtLine(linter, msg, tonumber(line+loff), buffer.MTError)
+                    bmsg = buffer.NewMessageAtLine(linter, msg, tonumber(lineno+loff), buffer.MTError)
                 end
                 buf:AddMessage(bmsg)
             end
