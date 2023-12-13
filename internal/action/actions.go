@@ -206,8 +206,6 @@ func (h *BufPane) CursorDown() bool {
 		h.Cursor.Loc = h.Cursor.CurSelection[1]
 		h.Cursor.ResetSelection()
 		h.Cursor.StoreVisualX()
-
-		//		h.Cursor.Deselect(true)
 	} else {
 		h.MoveCursorDown(1)
 	}
