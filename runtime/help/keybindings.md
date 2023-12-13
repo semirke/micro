@@ -169,6 +169,8 @@ ParagraphPrevious
 ParagraphNext
 SelectParagraphPrevious
 SelectParagraphNext
+StartSelection
+EndSelection
 ToggleHelp
 ToggleRuler
 JumpLine
