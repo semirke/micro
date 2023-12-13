@@ -1453,6 +1453,8 @@ func (b *Buffer) ReindentBlock(bps [][2]rune, Start Loc, End Loc) string {
 		depth = len(ws)
 	}
 
+	skipCnt := false
+
 	for i := Start.Y; (i < b.LinesNum() && i < End.Y+1); i++ {
 		l := b.LineBytes(i)
 		ws := util.GetLeadingWhitespace(l)
@@ -1461,13 +1463,18 @@ func (b *Buffer) ReindentBlock(bps [][2]rune, Start Loc, End Loc) string {
 		nextDepth := depth
 		for _, ch := range(l) {
 			for _, bp := range(bps) {
-				if ch == byte(bp[0]) {
-					nextDepth++
+				if ch == '"' || ch == '\'' {
+					skipCnt = !skipCnt
 				}
-				if ch == byte(bp[1]) {
-					nextDepth--
-					if nextDepth < 0 {
-						nextDepth = 0
+				if !skipCnt {
+					if ch == byte(bp[0]) {
+						nextDepth++
+					}
+					if ch == byte(bp[1]) {
+						nextDepth--
+						if nextDepth < 0 {
+							nextDepth = 0
+						}
 					}
 				}
 			}
