@@ -110,6 +110,11 @@ func (t *TagMap) find(key string, prefix string) []*Record {
 
 func (t *TagMap) findAll(prefix string) []*Record {
 	recs := []*Record{}
+
+
+	if t == nil {return recs}
+	if t.tries == nil { return recs }
+
 	for _, root := range(t.tries) {
 		ret := root.find(prefix, 0)
 		recs = append(recs, ret...)
