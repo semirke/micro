@@ -340,7 +340,6 @@ func (n *Node) vHSplit(i int, right bool) uint64 {
 		if !right {
 			hn1.id, hn2.id = hn2.id, hn1.id
 		}
-
 		n.children = append(n.children, hn1, hn2)
 		n.markResize()
 		return newid
@@ -377,6 +376,7 @@ func (n *Node) hVSplit(i int, right bool) uint64 {
 			vn1.id, vn2.id = vn2.id, vn1.id
 		}
 
+		// TODO children remains empty when later queried?!
 		n.children = append(n.children, vn1, vn2)
 		n.markResize()
 		return newid
