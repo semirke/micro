@@ -766,8 +766,8 @@ func (b *Buffer) Insert(start Loc, text string) {
 						if mb.Y == start.Y {
 							continue
 						}
-						mb.X = 0
 						reindented := b.ReindentBlock(BracePairs, mb, pos)
+						mb.X = 0
 						if !b.Type.Readonly {
 							pos.X=0
 							pos.Y++
@@ -1461,12 +1461,13 @@ func (b *Buffer) ReindentBlock(bps [][2]rune, Start Loc, End Loc) string {
 
 		l = TabSpaceTrimLeft(l, tabsize)
 		nextDepth := depth
+		rowX := 0
 		for _, ch := range(l) {
 			for _, bp := range(bps) {
 				if ch == '"' || ch == '\'' {
 					skipCnt = !skipCnt
 				}
-				if !skipCnt {
+				if !skipCnt && (i != Start.Y || rowX >= (Start.X-(depth*tabsize))) {
 					if ch == byte(bp[0]) {
 						nextDepth++
 					}
@@ -1478,10 +1479,11 @@ func (b *Buffer) ReindentBlock(bps [][2]rune, Start Loc, End Loc) string {
 					}
 				}
 			}
+			rowX++
 		}
 
-		// Apply depth decrease before adding tabs
-		if len(l) > 0 {
+		// Apply depth decrease before adding tabs except for the first line
+		if len(l) > 0 && i != Start.Y {
 			for _, bp := range(bps) {
 				if l[0] == byte(bp[1]) {
 					depth--
