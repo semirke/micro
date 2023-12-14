@@ -236,7 +236,11 @@ func (h *BufPane) CursorLeft() bool {
 
 // CursorRight moves the cursor right
 func (h *BufPane) CursorRight() bool {
-	if h.Cursor.HasSelection() {
+
+	// Accept current suggestion
+	if h.Buf.HasSuggestions {
+		h.Buf.Insert(h.Cursor.Loc, h.Buf.Completions[h.Buf.CurSuggestion]);
+	} else if h.Cursor.HasSelection() {
 		h.Cursor.Deselect(false)
 		h.Cursor.Loc = h.Cursor.Loc.Move(1, h.Buf)
 	} else {
@@ -588,6 +592,12 @@ func (h *BufPane) SelectToEnd() bool {
 
 // InsertNewline inserts a newline plus possible some whitespace if autoindent is on
 func (h *BufPane) InsertNewline() bool {
+	// Accept current suggestion
+	if h.Buf.HasSuggestions {
+		h.Buf.Insert(h.Cursor.Loc, h.Buf.Completions[h.Buf.CurSuggestion]);
+		return true
+	}
+
 	// Insert a newline
 	if h.Cursor.HasSelection() {
 		h.Cursor.DeleteSelection()
