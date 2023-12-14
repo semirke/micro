@@ -546,7 +546,8 @@ func (h *BufPane) DoKeyEvent(e Event) bool {
 }
 
 func (h *BufPane) execAction(action func(*BufPane) bool, name string, cursor int) bool {
-	if name != "Autocomplete" && name != "CycleAutocompleteBack" {
+	if (name != "Autocomplete" && name != "CycleAutocompleteBack" &&
+		name != "CursorRight" && name != "InsertNewline" ) {
 		h.Buf.HasSuggestions = false
 	}
 
