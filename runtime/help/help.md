@@ -1,7 +1,5 @@
 # Micro help text
 
-Thank you for downloading and using micro.
-
 Micro is an easy to use, intuitive, text editor that takes advantage of the
 full capabilities of modern terminals.
 
@@ -24,12 +22,12 @@ Move the cursor around with the mouse or with the arrow keys. Enter text simply
 by pressing character keys.
 
 If the colorscheme doesn't look good, you can change it with
-`> set colorscheme ...`. You can press tab to see the available colorschemes, or
-see more information with `> help colors`.
+`> set colorscheme ...`. You can press tab to see the available colorschemes,
+or see more information about colorschemes and syntax highlighting with `> help
+colors`.
 
-Press CtrlW to move between splits, and type `> vsplit filename` or
+Press Ctrl-w to move between splits, and type `> vsplit filename` or
 `> hsplit filename` to open a new split.
-
 
 ## Accessing more help
 
@@ -43,7 +41,6 @@ Here are the available help topics:
 
 * tutorial: A brief tutorial which gives an overview of all the other help
   topics
-* mouse: Gives further explanation of Micro's mouse support.
 * keybindings: Gives a full list of the default keybindings as well as how to
   rebind them
 * defaultkeys: Gives a more straight-forward list of the hotkey commands and
@@ -52,11 +49,10 @@ Here are the available help topics:
 * options: Gives a list of all the options you can customize
 * plugins: Explains how micro's plugin system works and how to create your own
   plugins
-* colors: Explains micro's colorscheme and syntax highlighting engine and how to
-  create your own colorschemes or add new languages to the engine
+* colors: Explains micro's colorscheme and syntax highlighting engine and how
+  to create your own colorschemes or add new languages to the engine
 
-For example, to open the help page on plugins you would press CtrlE and type
-`help plugins`.
+For example, to open the help page on plugins you would run `> help plugins`.
 
 I recommend looking at the `tutorial` help file because it is short for each
 section and gives concrete examples of how to use the various configuration

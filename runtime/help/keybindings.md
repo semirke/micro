@@ -4,11 +4,12 @@ Micro has a plethora of hotkeys that make it easy and powerful to use and all
 hotkeys are fully customizable to your liking.
 
 Custom keybindings are stored internally in micro if changed with the `> bind`
-command or you can also be added in the file `~/.config/micro/bindings.json` as
-discussed below.  For a list of the default keybindings in the json format used
+command or can also be added in the file `~/.config/micro/bindings.json` as
+discussed below. For a list of the default keybindings in the json format used
 by micro, please see the end of this file. For a more user-friendly list with
 explanations of what the default hotkeys are and what they do, please see
-`>help defaultkeys`
+`> help defaultkeys` (a json formatted list of default keys is included
+at the end of this document).
 
 If `~/.config/micro/bindings.json` does not exist, you can simply create it.
 Micro will know what to do with it.
@@ -19,11 +20,10 @@ cursor to the start and end of the buffer.
 
 You can hold shift with all of these movement actions to select while moving.
 
-
 ## Rebinding keys
 
-The bindings may be rebound using the `~/.config/micro/bindings.json` file. Each
-key is bound to an action.
+The bindings may be rebound using the `~/.config/micro/bindings.json` file.
+Each key is bound to an action.
 
 For example, to bind `Ctrl-y` to undo and `Ctrl-z` to redo, you could put the
 following in the `bindings.json` file.
@@ -34,6 +34,12 @@ following in the `bindings.json` file.
     "Ctrl-z": "Redo"
 }
 ```
+
+**Note:** The syntax `<Modifier><key>` is equivalent to `<Modifier>-<key>`. In
+addition, Ctrl-Shift bindings are not supported by terminals, and are the same
+as simply Ctrl bindings. This means that `CtrlG`, `Ctrl-G`, and `Ctrl-g` all
+mean the same thing. However, for Alt this is not the case: `AltG` and `Alt-G`
+mean `Alt-Shift-g`, while `Alt-g` does not require the Shift modifier.
 
 In addition to editing your `~/.config/micro/bindings.json`, you can run
 `>bind <keycombo> <action>` For a list of bindable actions, see below.
@@ -47,6 +53,55 @@ save and quit you can bind it like so:
 }
 ```
 
+Each action will return a success flag. Actions can be chained such that
+the chain only continues when there are successes, or failures, or either.
+The `,` separator will always chain to the next action. The `|` separator
+will abort the chain if the action preceding it succeeds, and the `&` will
+abort the chain if the action preceding it fails. For example, in the default
+bindings, tab is bound as
+
+```
+"Tab": "Autocomplete|IndentSelection|InsertTab"
+```
+
+This means that if the `Autocomplete` action is successful, the chain will
+abort. Otherwise, it will try `IndentSelection`, and if that fails too, it
+will execute `InsertTab`.
+
+## Binding commands
+
+You can also bind a key to execute a command in command mode (see
+`help commands`). Simply prepend the binding with `command:`. For example:
+
+```json
+{
+    "Alt-p": "command:pwd"
+}
+```
+
+**Note for macOS**: By default, macOS terminals do not forward alt events and
+instead insert unicode characters. To fix this, do the following:
+
+* iTerm2: select `Esc+` for `Left Option Key` in `Preferences->Profiles->Keys`.
+* Terminal.app: Enable `Use Option key as Meta key` in `Preferences->Profiles->Keyboard`.
+
+Now when you press `Alt-p` the `pwd` command will be executed which will show
+your working directory in the infobar.
+
+You can also bind an "editable" command with `command-edit:`. This means that
+micro won't immediately execute the command when you press the binding, but
+instead just place the string in the infobar in command mode. For example,
+you could rebind `Ctrl-g` to `> help`:
+
+```json
+{
+    "Ctrl-g": "command-edit:help "
+}
+```
+
+Now when you press `Ctrl-g`, `help` will appear in the command bar and your
+cursor will be placed after it (note the space in the json that controls the
+cursor placement).
 
 ## Binding raw escape sequences
 
@@ -61,15 +116,15 @@ starting with `0x1b`.
 For example, if micro reads `\x1b[1;5D`, on most terminals this will mean the
 user pressed CtrlLeft.
 
-For many key chords though, the terminal won't send any escape code or will send
-an escape code already in use. For example for `CtrlBackspace`, my terminal
-sends `\u007f` (note this doesn't start with `0x1b`), which it also sends for
-`Backspace` meaning micro can't bind `CtrlBackspace`.
+For many key chords though, the terminal won't send any escape code or will
+send an escape code already in use. For example for `CtrlBackspace`, my
+terminal sends `\u007f` (note this doesn't start with `0x1b`), which it also
+sends for `Backspace` meaning micro can't bind `CtrlBackspace`.
 
 However, some terminals do allow you to bind keys to send specific escape
 sequences you define. Then from micro you can directly bind those escape
-sequences to actions. For example, to bind `CtrlBackspace` you can instruct your
-terminal to send `\x1bctrlback` and then bind it in `bindings.json`:
+sequences to actions. For example, to bind `CtrlBackspace` you can instruct
+your terminal to send `\x1bctrlback` and then bind it in `bindings.json`:
 
 ```json
 {
@@ -81,9 +136,9 @@ Here are some instructions for sending raw escapes in different terminals
 
 ### iTerm2
 
-In iTerm2, you can do this in  `Preferences->Profiles->Keys` then click the `+`,
-input your keybinding, and for the `Action` select `Send Escape Sequence`. For
-the above example your would type `ctrlback` into the box (the `\x1b`) is
+In iTerm2, you can do this in  `Preferences->Profiles->Keys` then click the
+`+`, input your keybinding, and for the `Action` select `Send Escape Sequence`.
+For the above example your would type `ctrlback` into the box (the `\x1b`) is
 automatically sent by iTerm2.
 
 ### Linux using loadkeys
@@ -92,12 +147,10 @@ You can do this in linux using the loadkeys program.
 
 Coming soon!
 
-
 ## Unbinding keys
 
 It is also possible to disable any of the default key bindings by use of the
-`UnbindKey` action in the user's `bindings.json` file.
-
+`None` action in the user's `bindings.json` file.
 
 ## Bindable actions and bindable keys
 
@@ -121,6 +174,10 @@ SelectUp
 SelectDown
 SelectLeft
 SelectRight
+SelectToStartOfText
+SelectToStartOfTextToggle
+StartSelection
+EndSelection
 WordRight
 WordLeft
 SelectWordRight
@@ -129,6 +186,7 @@ MoveLinesUp
 MoveLinesDown
 DeleteWordRight
 DeleteWordLeft
+SelectLine
 SelectToStartOfLine
 SelectToEndOfLine
 InsertNewline
@@ -141,6 +199,7 @@ Save
 SaveAll
 SaveAs
 Find
+FindLiteral
 FindNext
 FindPrevious
 DiffPrevious
@@ -148,12 +207,15 @@ DiffNext
 Undo
 Redo
 Copy
+CopyLine
 Cut
 CutLine
 DuplicateLine
 DeleteLine
 IndentSelection
 OutdentSelection
+OutdentLine
+IndentLine
 Paste
 SelectAll
 OpenFile
@@ -161,17 +223,18 @@ Start
 End
 PageUp
 PageDown
+SelectPageUp
+SelectPageDown
 HalfPageUp
 HalfPageDown
 StartOfLine
 EndOfLine
+StartOfText
+StartOfTextToggle
 ParagraphPrevious
 ParagraphNext
-SelectParagraphPrevious
-SelectParagraphNext
-StartSelection
-EndSelection
 ToggleHelp
+ToggleDiffGutter
 ToggleRuler
 JumpLine
 JumpNextMessage
@@ -190,15 +253,23 @@ HSplit
 PreviousSplit
 ToggleMacro
 PlayMacro
-Suspend (Linux only)
+Suspend (Unix only)
 ScrollUp
 ScrollDown
 SpawnMultiCursor
+SpawnMultiCursorUp
+SpawnMultiCursorDown
+SpawnMultiCursorSelect
 RemoveMultiCursor
 RemoveAllMultiCursors
 SkipMultiCursor
-UnbindKey
+None
+JumpToMatchingBrace
+Autocomplete
 ```
+
+The `StartOfTextToggle` and `SelectToStartOfTextToggle` actions toggle between
+jumping to the start of the text (first) and start of the line.
 
 You can also bind some mouse actions (these must be bound to mouse buttons)
 
@@ -297,38 +368,39 @@ F62
 F63
 F64
 CtrlSpace
-CtrlA
-CtrlB
-CtrlC
-CtrlD
-CtrlE
-CtrlF
-CtrlG
-CtrlH
-CtrlI
-CtrlJ
-CtrlK
-CtrlL
-CtrlM
-CtrlN
-CtrlO
-CtrlP
-CtrlQ
-CtrlR
-CtrlS
-CtrlT
-CtrlU
-CtrlV
-CtrlW
-CtrlX
-CtrlY
-CtrlZ
+Ctrl-a
+Ctrl-b
+Ctrl-c
+Ctrl-d
+Ctrl-e
+Ctrl-f
+Ctrl-g
+Ctrl-h
+Ctrl-i
+Ctrl-j
+Ctrl-k
+Ctrl-l
+Ctrl-m
+Ctrl-n
+Ctrl-o
+Ctrl-p
+Ctrl-q
+Ctrl-r
+Ctrl-s
+Ctrl-t
+Ctrl-u
+Ctrl-v
+Ctrl-w
+Ctrl-x
+Ctrl-y
+Ctrl-z
 CtrlLeftSq
 CtrlBackslash
 CtrlRightSq
 CtrlCarat
 CtrlUnderscore
 Backspace
+OldBackspace
 Tab
 Esc
 Escape
@@ -348,7 +420,16 @@ MouseWheelLeft
 MouseWheelRight
 ```
 
+## Key sequences
+
+Key sequences can be bound by specifying valid keys one after another in brackets, such
+as `<Ctrl-x><Ctrl-c>`.
+
 # Default keybinding configuration.
+
+A select few keybindings are different on MacOS compared to other
+operating systems. This is because different OSes have different
+conventions for text editing defaults.
 
 ```json
 {
@@ -360,17 +441,23 @@ MouseWheelRight
     "ShiftDown":      "SelectDown",
     "ShiftLeft":      "SelectLeft",
     "ShiftRight":     "SelectRight",
-    "AltLeft":        "WordLeft",
-    "AltRight":       "WordRight",
+    "AltLeft":        "WordLeft", (Mac)
+    "AltRight":       "WordRight", (Mac)
     "AltUp":          "MoveLinesUp",
     "AltDown":        "MoveLinesDown",
-    "AltShiftRight":  "SelectWordRight",
-    "AltShiftLeft":   "SelectWordLeft",
-    "CtrlLeft":       "StartOfLine",
-    "CtrlRight":      "EndOfLine",
-    "CtrlShiftLeft":  "SelectToStartOfLine",
-    "ShiftHome":      "SelectToStartOfLine",
-    "CtrlShiftRight": "SelectToEndOfLine",
+    "CtrlShiftRight": "SelectWordRight",
+    "CtrlShiftLeft":  "SelectWordLeft",
+    "AltLeft":        "StartOfTextToggle",
+    "AltRight":       "EndOfLine",
+    "AltShiftRight":  "SelectWordRight", (Mac)
+    "AltShiftLeft":   "SelectWordLeft", (Mac)
+    "CtrlLeft":       "StartOfText", (Mac)
+    "CtrlRight":      "EndOfLine", (Mac)
+    "AltShiftLeft":   "SelectToStartOfTextToggle",
+    "CtrlShiftLeft":  "SelectToStartOfTextToggle", (Mac)
+    "ShiftHome":      "SelectToStartOfTextToggle",
+    "AltShiftRight":  "SelectToEndOfLine",
+    "CtrlShiftRight": "SelectToEndOfLine", (Mac)
     "ShiftEnd":       "SelectToEndOfLine",
     "CtrlUp":         "CursorStart",
     "CtrlDown":       "CursorEnd",
@@ -432,7 +519,6 @@ MouseWheelRight
     "Alt-e": "EndOfLine",
 
     // Integration with file managers
-    "F1":  "ToggleHelp",
     "F2":  "Save",
     "F3":  "Find",
     "F4":  "Quit",
@@ -561,7 +647,7 @@ are given below:
 
 ## Final notes
 
-Note: On some old terminal emulators and on Windows machines, `CtrlH` should be
+Note: On some old terminal emulators and on Windows machines, `Ctrl-h` should be
 used for backspace.
 
 Additionally, alt keys can be bound by using `Alt-key`. For example `Alt-a` or
@@ -569,3 +655,9 @@ Additionally, alt keys can be bound by using `Alt-key`. For example `Alt-a` or
 `Ctrl` so `Alt-a` could be rewritten as `Alta` (case matters for alt bindings).
 This is why in the default keybindings you can see `AltShiftLeft` instead of
 `Alt-ShiftLeft` (they are equivalent).
+
+Please note that terminal emulators are strange applications and micro only
+receives key events that the terminal decides to send. Some terminal emulators
+may not send certain events even if this document says micro can receive the
+event. To see exactly what micro receives from the terminal when you press a
+key, run the `> raw` command.
