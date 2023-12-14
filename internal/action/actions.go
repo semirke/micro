@@ -202,13 +202,9 @@ func (h *BufPane) CursorUp() bool {
 
 // CursorDown moves the cursor down
 func (h *BufPane) CursorDown() bool {
-	if h.Cursor.HasSelection() {
-		h.Cursor.Loc = h.Cursor.CurSelection[1]
-		h.Cursor.ResetSelection()
-		h.Cursor.StoreVisualX()
-	} else {
-		h.MoveCursorDown(1)
-	}
+	// fix from https://github.com/dustdfg/micro/tree/fix/cursor-down-move
+	h.Cursor.Deselect(false)
+	h.MoveCursorDown(1)
 	h.Relocate()
 	return true
 }
