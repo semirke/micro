@@ -176,6 +176,8 @@ SelectLeft
 SelectRight
 SelectToStartOfText
 SelectToStartOfTextToggle
+StartSelection
+EndSelection
 WordRight
 WordLeft
 SelectWordRight
@@ -235,6 +237,7 @@ ToggleHelp
 ToggleDiffGutter
 ToggleRuler
 JumpLine
+JumpNextMessage
 ClearStatus
 ShellMode
 CommandMode

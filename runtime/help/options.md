@@ -11,7 +11,7 @@ if you have set either of the above environment variables).
 
 Here are the available options:
 
-* `autoindent`: when creating a new line, use the same indentation as the 
+* `autoindent`: when creating a new line, use the same indentation as the
    previous line.
 
 	default value: `true`
@@ -79,7 +79,7 @@ Here are the available options:
 
 	default value: `0`
 
-* `colorscheme`: loads the colorscheme stored in 
+* `colorscheme`: loads the colorscheme stored in
    $(configDir)/colorschemes/`option`.micro, This setting is `global only`.
 
 	default value: `default`
@@ -88,7 +88,7 @@ Here are the available options:
     are not located in configDir, because they are embedded in the micro
     binary.
 
-	The colorscheme can be selected from all the files in the 
+	The colorscheme can be selected from all the files in the
 	~/.config/micro/colorschemes/ directory. Micro comes by default with
 	three colorschemes:
 
@@ -177,6 +177,17 @@ Here are the available options:
 * `incsearch`: enable incremental search in "Find" prompt (matching as you type).
 
 	default value: `true`
+
+* `hltaberrors`: highlight tabs when spaces are expected, and spaces when tabs
+   are expected. More precisely: if `tabstospaces` option is on, highlight
+   all tab characters; if `tabstospaces` is off, highlight space characters
+   in the initial indent part of the line.
+
+	default value: `false`
+
+* `hltrailingws`: highlight trailing whitespaces at ends of lines. Note that
+   it doesn't highlight newly added trailing whitespaces that naturally occur
+   while typing text. It highlights only nasty forgotten trailing whitespaces.
 
 * `ignorecase`: perform case-insensitive searches.
 
@@ -281,6 +292,11 @@ Here are the available options:
 
     default value: `false`
 
+* `usectags`: when enabled and universal ctags is available, it'll be used
+   to extract tags that'll be fed to the tags autocomplete.
+
+    default value: `true`
+
 * `reload`: controls the reload behavior of the current buffer in case the file
    has changed. The available options are `prompt`, `auto` & `disabled`.
 
@@ -297,9 +313,9 @@ Here are the available options:
 
 * `relativeruler`: make line numbers display relatively. If set to true, all
    lines except for the line that the cursor is located will display the distance
-   from the cursor's line. 
+   from the cursor's line.
 
-	default value: `false` 
+	default value: `false`
 
 * `savecursor`: remember where the cursor was last time the file was opened and
    put it there when you open the file again. Information is saved to
@@ -411,6 +427,11 @@ Here are the available options:
 
 	default value: `false`
 
+* `linter`: Automatically lint when the file is saved. Provided by the `linter`
+   plugin.
+
+	default value: `on`
+
 * `useprimary` (only useful on unix): defines whether or not micro will use the
    primary clipboard to copy selections in the background. This does not affect
    the normal clipboard using Ctrl-c and Ctrl-v.
@@ -450,7 +471,7 @@ or disable them:
    recent Git commit rather than the diff since opening the file.
 
 Any option you set in the editor will be saved to the file
-~/.config/micro/settings.json so, in effect, your configuration file will be 
+~/.config/micro/settings.json so, in effect, your configuration file will be
 created for you. If you'd like to take your configuration with you to another
 machine, simply copy the settings.json to the other machine.
 

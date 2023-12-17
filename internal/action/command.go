@@ -809,9 +809,11 @@ func (h *BufPane) ReplaceCmd(args []string) {
 		start = h.Cursor.CurSelection[0]
 		end = h.Cursor.CurSelection[1]
 	}
-	if all {
-		nreplaced, _ = h.Buf.ReplaceRegex(start, end, regex, replace)
-	} else {
+	// Well, this sucked, never finished (10+ min on a 1.7Mb file)
+//	if all {
+//		nreplaced, _ = h.Buf.ReplaceRegex(start, end, regex, replace)
+//	} else {
+	{
 		inRange := func(l buffer.Loc) bool {
 			return l.GreaterEqual(start) && l.LessEqual(end)
 		}
@@ -838,26 +840,40 @@ func (h *BufPane) ReplaceCmd(args []string) {
 			h.Buf.LastSearchRegex = true
 			h.Buf.HighlightSearch = h.Buf.Settings["hlsearch"].(bool)
 
-			InfoBar.YNPrompt("Perform replacement (y,n,esc)", func(yes, canceled bool) {
-				if !canceled && yes {
-					_, nrunes := h.Buf.ReplaceRegex(locs[0], locs[1], regex, replace)
+			if !all {
+				InfoBar.YNPrompt("Perform replacement (y,n,esc)", func(yes, canceled bool) {
+						if !canceled && yes {
+							_, nrunes := h.Buf.ReplaceRegex(locs[0], locs[1], regex, replace)
 
-					searchLoc = locs[0]
-					searchLoc.X += nrunes + locs[0].Diff(locs[1], h.Buf)
-					if end.Y == locs[1].Y {
-						end = end.Move(nrunes, h.Buf)
-					}
-					h.Cursor.Loc = searchLoc
-					nreplaced++
-				} else if !canceled && !yes {
-					searchLoc = locs[1]
-				} else if canceled {
-					h.Cursor.ResetSelection()
-					h.Buf.RelocateCursors()
-					return
+							searchLoc = locs[0]
+							searchLoc.X += nrunes + locs[0].Diff(locs[1], h.Buf)
+							if end.Y == locs[1].Y {
+								end = end.Move(nrunes, h.Buf)
+							}
+							h.Cursor.Loc = searchLoc
+							nreplaced++
+						} else if !canceled && !yes {
+							searchLoc = locs[1]
+						} else if canceled {
+							h.Cursor.ResetSelection()
+							h.Buf.RelocateCursors()
+							return
+						}
+						doReplacement()
+					})
+			} else {
+				_, nrunes := h.Buf.ReplaceRegex(locs[0], locs[1], regex, replace)
+
+				searchLoc = locs[0]
+				searchLoc.X += nrunes + locs[0].Diff(locs[1], h.Buf)
+				if end.Y == locs[1].Y {
+					end = end.Move(nrunes, h.Buf)
 				}
+				h.Cursor.Loc = searchLoc
+				nreplaced++
+
 				doReplacement()
-			})
+			}
 		}
 		doReplacement()
 	}

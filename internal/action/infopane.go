@@ -202,6 +202,11 @@ func (h *InfoPane) CommandComplete() {
 
 // ExecuteCommand completes the prompt
 func (h *InfoPane) ExecuteCommand() {
+	if h.Buf.HasSuggestions {
+		h.Buf.Insert(h.Cursor.Loc, h.Buf.Completions[h.Buf.CurSuggestion]);
+		return
+	}
+
 	if !h.HasYN {
 		h.DonePrompt(false)
 	}

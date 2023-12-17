@@ -219,6 +219,11 @@
             "type": "boolean",
             "default": false
         },
+        "usectags": {
+            "description": "Whether to use universal ctags to extract tags on load\nhttps://github.com/zyedidia/micro/blob/master/runtime/help/options.md#options",
+            "type": "boolean",
+            "default": true
+        },
         "rmtrailingws": {
             "description": "Whether to remove trailing whitespaces\nhttps://github.com/zyedidia/micro/blob/master/runtime/help/options.md#options",
             "type": "boolean",

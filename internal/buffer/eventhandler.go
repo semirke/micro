@@ -45,6 +45,18 @@ type Delta struct {
 func (eh *EventHandler) DoTextEvent(t *TextEvent, useUndo bool) {
 	oldl := eh.buf.LinesNum()
 
+	if len(t.Deltas) == 1 {
+		d := t.Deltas[0]
+		if eh.buf.HasSuggestions && len(d.Text) == 1 && util.IsNonAlphaNumeric(rune(d.Text[0])) {
+			// We were in AutoComplete mode and got a non alphanumerical char
+			// that means we accept the suggestion
+			sugg := []byte(eh.buf.Completions[eh.buf.CurSuggestion])
+			t.Deltas[0].Text = append(sugg , d.Text...)
+			//c := b.GetActiveCursor()
+			//c.GotoLoc(Loc{pos.X + len(sugg), pos.Y})
+		}
+	}
+
 	if useUndo {
 		eh.Execute(t)
 	} else {
@@ -106,17 +118,38 @@ func (eh *EventHandler) DoTextEvent(t *TextEvent, useUndo bool) {
 		c.Relocate()
 		c.LastVisualX = c.GetVisualX()
 	}
+
+	if useUndo {
+		eh.updateTrailingWs(t)
+	}
+}
+
+// Counts LineFeeds (ascii 10)
+func CountNL(bytearr []byte) (int){
+	l := 0
+	for _, b := range bytearr {
+		if b == 10 {
+			l++
+		}
+	}
+	return l
 }
 
 // ExecuteTextEvent runs a text event
 func ExecuteTextEvent(t *TextEvent, buf *SharedBuffer) {
+	// Check for new lines and move Message markers
+	var ls [][5]int
+
 	if t.EventType == TextEventInsert {
 		for _, d := range t.Deltas {
 			buf.insert(d.Start, d.Text)
+			ls = append(ls, [5]int{CountNL(d.Text), d.Start.X, d.Start.Y, d.End.X, d.End.Y})
 		}
 	} else if t.EventType == TextEventRemove {
 		for i, d := range t.Deltas {
 			t.Deltas[i].Text = buf.remove(d.Start, d.End)
+			ls = append(ls, [5]int{-1*CountNL(t.Deltas[i].Text), d.Start.X, d.Start.Y,
+						d.End.X, d.End.Y})
 		}
 	} else if t.EventType == TextEventReplace {
 		for i, d := range t.Deltas {
@@ -129,6 +162,88 @@ func ExecuteTextEvent(t *TextEvent, buf *SharedBuffer) {
 			t.Deltas[i], t.Deltas[j] = t.Deltas[j], t.Deltas[i]
 		}
 	}
+	const (
+		MM_matchcnt int = 0
+		MM_StartX       = 1
+		MM_StartY       = 2
+		MM_EndX         = 3
+		MM_EndY         = 4
+	)
+	// Moving affected message markers
+	for _, le := range ls {
+		if le[MM_matchcnt] != 0 && len(buf.Messages) > 0 {
+			len_msgs := len(buf.Messages)
+			for i:= 0; i < len_msgs; i++ {
+
+				// TODO test with not full line markers
+				if le[MM_matchcnt] < 0 {
+					// When deleted NL is before marker OR
+					// same line as marker but after or same palce as
+					// marker in line
+
+					// When deleting we get same line start Y next line end.x 0
+					// for full line msg.both.X is always -1
+					// sor végén saját sor és köv sor x0
+					// sor elején előző osr és saját sor x0
+					// akkor töröljük hát ez egy jó kérdés....
+					// marker akkor törlünk, ha start x 0 és y egyezik
+					if (buf.Messages[i].Start.Y == le[MM_StartY] &&
+							0 == le[MM_StartX]) {
+						buf.Messages[i].Start.Y = -1
+						continue
+					}
+
+					if buf.Messages[i].Start.Y > le[MM_StartY] {
+
+						buf.Messages[i].Start.Y += le[MM_matchcnt]
+					}
+					if buf.Messages[i].End.Y >= le[MM_EndY] {
+
+						buf.Messages[i].End.Y += le[MM_matchcnt]
+					}
+				} else {
+					// When inserted NL before marker OR
+					// same line as marker but before marker in line
+					if buf.Messages[i].Start.Y > le[MM_StartY] ||
+							(buf.Messages[i].Start.Y == le[MM_StartY] &&
+							buf.Messages[i].Start.X <= le[MM_StartX]) {
+
+						buf.Messages[i].Start.Y += le[MM_matchcnt]
+						if le[MM_EndY] == 0 {	// this was a single char
+							buf.Messages[i].End.Y += le[MM_matchcnt]
+						}
+
+					}
+					if buf.Messages[i].End.Y > le[MM_EndY] && le[MM_EndY] > 0||
+							(buf.Messages[i].End.Y == le[MM_EndY] && le[MM_EndY] > 0 &&
+							buf.Messages[i].End.X <= le[MM_EndX]) {
+
+						buf.Messages[i].End.Y += le[MM_matchcnt]
+					}
+				}
+
+			}
+
+			i:=0
+			for true {
+				found := false
+				for i=i ; i<len(buf.Messages); i++ {
+					if buf.Messages[i].Start.Y == -1 {
+						copy(buf.Messages[i:], buf.Messages[i+1:])
+						buf.Messages[len(buf.Messages)-1] = nil
+						buf.Messages = buf.Messages[:len(buf.Messages)-1]
+						found = true
+						break
+					}
+				}
+				if !found {
+					break
+				}
+
+			}
+		}
+	}
+
 }
 
 // UndoTextEvent undoes a text event
@@ -290,6 +405,7 @@ func (eh *EventHandler) UndoOneEvent() {
 	if teCursor.Num >= 0 && teCursor.Num < len(eh.cursors) {
 		t.C = *eh.cursors[teCursor.Num]
 		eh.cursors[teCursor.Num].Goto(teCursor)
+		eh.cursors[teCursor.Num].NewTrailingWsY = teCursor.NewTrailingWsY
 	} else {
 		teCursor.Num = -1
 	}
@@ -333,6 +449,7 @@ func (eh *EventHandler) RedoOneEvent() {
 	if teCursor.Num >= 0 && teCursor.Num < len(eh.cursors) {
 		t.C = *eh.cursors[teCursor.Num]
 		eh.cursors[teCursor.Num].Goto(teCursor)
+		eh.cursors[teCursor.Num].NewTrailingWsY = teCursor.NewTrailingWsY
 	} else {
 		teCursor.Num = -1
 	}
@@ -341,4 +458,59 @@ func (eh *EventHandler) RedoOneEvent() {
 	eh.UndoTextEvent(t)
 
 	eh.UndoStack.Push(t)
+}
+
+// updateTrailingWs updates the cursor's trailing whitespace status after a text event
+func (eh *EventHandler) updateTrailingWs(t *TextEvent) {
+	if len(t.Deltas) != 1 {
+		return
+	}
+	text := t.Deltas[0].Text
+	start := t.Deltas[0].Start
+	end := t.Deltas[0].End
+
+	c := eh.cursors[eh.active]
+	isEol := func(loc Loc) bool {
+		return loc.X == util.CharacterCount(eh.buf.LineBytes(loc.Y))
+	}
+	if t.EventType == TextEventInsert && c.Loc == end && isEol(end) {
+		var addedTrailingWs bool
+		addedAfterWs := false
+		addedWsOnly := false
+		if start.Y == end.Y {
+			addedTrailingWs = util.HasTrailingWhitespace(text)
+			addedWsOnly = util.IsBytesWhitespace(text)
+			addedAfterWs = start.X > 0 && util.IsWhitespace(c.buf.RuneAt(Loc{start.X - 1, start.Y}))
+		} else {
+			lastnl := bytes.LastIndex(text, []byte{'\n'})
+			addedTrailingWs = util.HasTrailingWhitespace(text[lastnl+1:])
+		}
+
+		if addedTrailingWs && !(addedAfterWs && addedWsOnly) {
+			c.NewTrailingWsY = c.Y
+		} else if !addedTrailingWs {
+			c.NewTrailingWsY = -1
+		}
+	} else if t.EventType == TextEventRemove && c.Loc == start && isEol(start) {
+		removedAfterWs := util.HasTrailingWhitespace(eh.buf.LineBytes(start.Y))
+		var removedWsOnly bool
+		if start.Y == end.Y {
+			removedWsOnly = util.IsBytesWhitespace(text)
+		} else {
+			firstnl := bytes.Index(text, []byte{'\n'})
+			removedWsOnly = util.IsBytesWhitespace(text[:firstnl])
+		}
+
+		if removedAfterWs && !removedWsOnly {
+			c.NewTrailingWsY = c.Y
+		} else if !removedAfterWs {
+			c.NewTrailingWsY = -1
+		}
+	} else if c.NewTrailingWsY != -1 && start.Y != end.Y && c.Loc.GreaterThan(start) &&
+		((t.EventType == TextEventInsert && c.Y == c.NewTrailingWsY+(end.Y-start.Y)) ||
+			(t.EventType == TextEventRemove && c.Y == c.NewTrailingWsY-(end.Y-start.Y))) {
+		// The cursor still has its new trailingws
+		// but its line number was shifted by insert or remove of lines above
+		c.NewTrailingWsY = c.Y
+	}
 }

@@ -31,8 +31,6 @@ import (
 )
 
 var (
-	// Event channel
-	autosave chan bool
 
 	// Command line flags
 	flagVersion   = flag.Bool("version", false, "Show the version number and information")

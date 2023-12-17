@@ -35,9 +35,10 @@ func runeToByteIndex(n int, txt []byte) int {
 // A searchState contains the search match info for a single line
 type searchState struct {
 	search     string
+	lastWord   string
 	useRegex   bool
 	ignorecase bool
-	match      [][2]int
+	match      [][3]int
 	done       bool
 }
 
@@ -386,9 +387,14 @@ func (la *LineArray) SetRehighlight(lineN int, on bool) {
 // between multiple buffers (multiple instances of the same file opened
 // in different edit panes) which have distinct searches, so SearchMatch
 // needs to know which search to match against.
-func (la *LineArray) SearchMatch(b *Buffer, pos Loc) bool {
-	if b.LastSearch == "" {
-		return false
+//
+// Returns match type:
+//	0: no match
+//  1: search match
+//  2: WordAt match
+func (la *LineArray) SearchMatch(b *Buffer, pos Loc) int {
+	if b.LastSearch == "" && b.LastWord == "" {
+		return 0
 	}
 
 	lineN := pos.Y
@@ -405,39 +411,67 @@ func (la *LineArray) SearchMatch(b *Buffer, pos Loc) bool {
 		la.lines[lineN].search[b] = s
 	}
 	if !ok || s.search != b.LastSearch || s.useRegex != b.LastSearchRegex ||
-		s.ignorecase != b.Settings["ignorecase"].(bool) {
+			s.ignorecase != b.Settings["ignorecase"].(bool) ||
+			(s.lastWord != b.LastWord && len(b.LastWord) > 2 ) {
 		s.search = b.LastSearch
 		s.useRegex = b.LastSearchRegex
+		s.lastWord = b.LastWord
 		s.ignorecase = b.Settings["ignorecase"].(bool)
 		s.done = false
 	}
 
 	if !s.done {
 		s.match = nil
+	}
+
+	// Highlight searched word if enabled
+	if !s.done && s.search != "" && b.Settings["hlsearch"].(bool) {
 		start := Loc{0, lineN}
 		end := Loc{util.CharacterCount(la.lines[lineN].data), lineN}
 		for start.X < end.X {
 			m, found, _ := b.FindNext(b.LastSearch, start, end, start, true, b.LastSearchRegex)
+
 			if !found {
 				break
 			}
-			s.match = append(s.match, [2]int{m[0].X, m[1].X})
+			s.match = append(s.match, [3]int{ 1, m[0].X, m[1].X})
 
 			start.X = m[1].X
 			if m[1].X == m[0].X {
 				start.X = m[1].X + 1
 			}
 		}
-
-		s.done = true
 	}
 
-	for _, m := range s.match {
-		if pos.X >= m[0] && pos.X < m[1] {
-			return true
+	// Highligth WordAt
+	if !s.done && s.lastWord != "" {
+		start := Loc{0, lineN}
+		end := Loc{util.CharacterCount(la.lines[lineN].data), lineN}
+
+		for start.X < end.X {
+			m, found, _ := b.FindNext(b.LastWord, start, end, start, true, false)
+
+			if !found {
+				break
+			}
+			s.match = append(s.match, [3]int{2, m[0].X, m[1].X})
+
+			start.X = m[1].X
+			if m[1].X == m[0].X {
+				start.X = m[1].X + 1
+			}
 		}
 	}
-	return false
+
+
+	s.done = true
+
+	for _, m := range s.match {
+		if pos.X >= m[1] && pos.X < m[2] {
+			return m[0]
+		}
+	}
+	return 0
 }
 
 // invalidateSearchMatches marks search matches for the given line as outdated.

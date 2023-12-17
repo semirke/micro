@@ -50,16 +50,27 @@ func (b *Buffer) CycleAutocomplete(forward bool) {
 	}
 
 	c := b.GetActiveCursor()
-	start := c.Loc
-	end := c.Loc
-	if prevSuggestion < len(b.Suggestions) && prevSuggestion >= 0 {
-		start = end.Move(-util.CharacterCountInString(b.Completions[prevSuggestion]), b)
+
+	// Print if we have only one matching suggestions
+	// (if not it breaks that case)
+	if len(b.Suggestions) == 1 {
+		start := c.Loc
+		end := c.Loc
+
+		if prevSuggestion < len(b.Suggestions) && prevSuggestion >= 0 {
+			start = end.Move(-util.CharacterCountInString(b.Completions[prevSuggestion]), b)
+		}
+
+		b.Replace(start, end, b.Completions[b.CurSuggestion])
 	}
 
-	b.Replace(start, end, b.Completions[b.CurSuggestion])
 	if len(b.Suggestions) > 1 {
 		b.HasSuggestions = true
 	}
+
+	word, _ := GetWord(b)
+	b.SetTagInfo(string(word) + b.Completions[b.CurSuggestion])
+
 }
 
 // GetWord gets the most recent word separated by any separator
@@ -101,7 +112,7 @@ func GetArg(b *Buffer) (string, int) {
 	return input, argstart
 }
 
-// FileComplete autocompletes filenames
+// FileCofmplete autocompletes filenames
 func FileComplete(b *Buffer) ([]string, []string) {
 	c := b.GetActiveCursor()
 	input, argstart := GetArg(b)
@@ -153,6 +164,10 @@ func FileComplete(b *Buffer) ([]string, []string) {
 // BufferComplete autocompletes based on previous words in the buffer
 func BufferComplete(b *Buffer) ([]string, []string) {
 	c := b.GetActiveCursor()
+
+	// Check if . was the last character and try do Tags lookup
+	// TODO
+
 	input, argstart := GetWord(b)
 
 	if argstart == -1 {
@@ -164,6 +179,21 @@ func BufferComplete(b *Buffer) ([]string, []string) {
 	suggestionsSet := make(map[string]struct{})
 
 	var suggestions []string
+
+	recs := b.GetTagBuffer().findAll(string(input))
+	for _, tag := range(recs) {
+		//strw := tag.SourceFile + ":" + tag.TagName
+		strw := tag.TagName
+		if _, ok := suggestionsSet[strw]; !ok {
+			suggestionsSet[strw] = struct{}{}
+			if b.Path == tag.SourceFile {
+				suggestions = append([]string{strw}, suggestions...)
+			} else {
+				suggestions = append(suggestions, []string{strw}...)
+			}
+		}
+	}
+
 	for i := c.Y; i >= 0; i-- {
 		l := b.LineBytes(i)
 		words := bytes.FieldsFunc(l, util.IsNonAlphaNumeric)

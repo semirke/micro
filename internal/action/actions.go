@@ -144,6 +144,7 @@ func (h *BufPane) MoveCursorUp(n int) {
 			h.Cursor.Loc = h.LocFromVLoc(vloc)
 		}
 	}
+	h.SetSplitCursor()
 }
 
 // MoveCursorDown is not an action
@@ -164,6 +165,31 @@ func (h *BufPane) MoveCursorDown(n int) {
 			h.Cursor.Loc = h.LocFromVLoc(vloc)
 		}
 	}
+	h.SetSplitCursor()
+}
+
+func (h *BufPane) SetSplitCursor() {
+	// TODO config check for cursor lock
+
+	// TODO why is children empty?
+	//children := MainTab().GetNode(h.splitID).Children()
+
+	panes := make([]*BufPane, 0)
+	for _, p := range(MainTab().Panes) {
+		bp := p.(*BufPane)
+		if(bp.Buf.Path == h.Buf.Path + ".diff") {
+			panes = append(panes, bp)
+
+		}
+	}
+
+	if len(panes) > 0 {
+		for _, bp := range(panes) {
+			bp.Cursor.Loc = h.Cursor.Loc
+			bp.Relocate()
+		}
+	}
+
 }
 
 // CursorUp moves the cursor up
@@ -176,7 +202,8 @@ func (h *BufPane) CursorUp() bool {
 
 // CursorDown moves the cursor down
 func (h *BufPane) CursorDown() bool {
-	h.Cursor.Deselect(true)
+	// fix from https://github.com/dustdfg/micro/tree/fix/cursor-down-move
+	h.Cursor.Deselect(false)
 	h.MoveCursorDown(1)
 	h.Relocate()
 	return true
@@ -209,7 +236,11 @@ func (h *BufPane) CursorLeft() bool {
 
 // CursorRight moves the cursor right
 func (h *BufPane) CursorRight() bool {
-	if h.Cursor.HasSelection() {
+
+	// Accept current suggestion
+	if h.Buf.HasSuggestions {
+		h.Buf.Insert(h.Cursor.Loc, h.Buf.Completions[h.Buf.CurSuggestion]);
+	} else if h.Cursor.HasSelection() {
 		h.Cursor.Deselect(false)
 		h.Cursor.Loc = h.Cursor.Loc.Move(1, h.Buf)
 	} else {
@@ -419,6 +450,19 @@ func (h *BufPane) SelectToEndOfLine() bool {
 	return true
 }
 
+// Sets current position as start of selection
+func (h *BufPane) StartSelection() bool {
+	h.StartSelectionLoc = h.Cursor.Loc
+	return true
+}
+
+// Sets current position as start of selection
+func (h *BufPane) EndSelection() bool {
+	h.Cursor.SetSelectionStart(h.StartSelectionLoc)
+	h.Cursor.SetSelectionEnd(h.Cursor.Loc)
+	return true
+}
+
 // ParagraphPrevious moves the cursor to the previous empty line, or beginning of the buffer if there's none
 func (h *BufPane) ParagraphPrevious() bool {
 	var line int
@@ -452,6 +496,48 @@ func (h *BufPane) ParagraphNext() bool {
 		h.Cursor.Loc = h.Buf.End()
 	}
 	h.Relocate()
+	return true
+}
+
+// SelectParagraphPrevious select to the previous empty line, or beginning of the buffer if there's none
+func (h *BufPane) SelectParagraphPrevious() bool {
+	var line int
+	if !h.Cursor.HasSelection() {
+		h.Cursor.OrigSelection[0] = h.Cursor.Loc
+	}
+	for line = h.Cursor.Y; line > 0; line-- {
+		if len(h.Buf.LineBytes(line)) == 0 && line != h.Cursor.Y {
+			h.Cursor.X = 0
+			h.Cursor.Y = line
+			break
+		}
+	}
+	// If no empty line found. move cursor to end of buffer
+	if line == 0 {
+		h.Cursor.Loc = h.Buf.Start()
+	}
+	h.Cursor.SelectTo(h.Cursor.Loc)
+	return true
+}
+
+// SelectParagraphNext select to the next empty line, or end of the buffer if there's none
+func (h *BufPane) SelectParagraphNext() bool {
+	var line int
+	if !h.Cursor.HasSelection() {
+		h.Cursor.OrigSelection[0] = h.Cursor.Loc
+	}
+	for line = h.Cursor.Y; line < h.Buf.LinesNum(); line++ {
+		if len(h.Buf.LineBytes(line)) == 0 && line != h.Cursor.Y {
+			h.Cursor.X = 0
+			h.Cursor.Y = line
+			break
+		}
+	}
+	// If no empty line found. move cursor to end of buffer
+	if line == h.Buf.LinesNum() {
+		h.Cursor.Loc = h.Buf.End()
+	}
+	h.Cursor.SelectTo(h.Cursor.Loc)
 	return true
 }
 
@@ -506,6 +592,12 @@ func (h *BufPane) SelectToEnd() bool {
 
 // InsertNewline inserts a newline plus possible some whitespace if autoindent is on
 func (h *BufPane) InsertNewline() bool {
+	// Accept current suggestion
+	if h.Buf.HasSuggestions {
+		h.Buf.Insert(h.Cursor.Loc, h.Buf.Completions[h.Buf.CurSuggestion]);
+		return true
+	}
+
 	// Insert a newline
 	if h.Cursor.HasSelection() {
 		h.Cursor.DeleteSelection()
@@ -764,6 +856,7 @@ func (h *BufPane) SaveCB(action string, callback func()) bool {
 	} else {
 		noPrompt := h.saveBufToFile(h.Buf.Path, action, callback)
 		if noPrompt {
+			h.Buf.SetDiffBase(h.Buf.Bytes())
 			return true
 		}
 	}
@@ -908,9 +1001,23 @@ func (h *BufPane) Search(str string, useRegex bool, searchDown bool) error {
 
 func (h *BufPane) find(useRegex bool) bool {
 	h.searchOrig = h.Cursor.Loc
-	prompt := "Find: "
+
+	// Use last saved local or global search as default
+	lastSearch := ""
+	if h.Buf.LastSearch != "" {
+		lastSearch = h.Buf.LastSearch
+	} else if LastSearch != "" {
+		// Look for global last search
+		lastSearch = LastSearch
+	} else {
+		// Use the word under the cursor
+		lastSearch = string(h.Buf.WordAt(h.Cursor.Loc))
+		h.Buf.LastSearch = lastSearch
+	}
+
+	prompt := "Find [" + lastSearch + "]: "
 	if useRegex {
-		prompt = "Find (regex): "
+		prompt = "Find (regex) [" + lastSearch + "]: "
 	}
 	var eventCallback func(resp string)
 	if h.Buf.Settings["incsearch"].(bool) {
@@ -931,6 +1038,17 @@ func (h *BufPane) find(useRegex bool) bool {
 	findCallback := func(resp string, canceled bool) {
 		// Finished callback
 		if !canceled {
+			if resp == "" {
+				if h.Buf.LastSearch != "" {
+					resp = h.Buf.LastSearch
+				} else if LastSearch != "" {
+					// Look for global last search
+					resp = LastSearch
+				}
+			} else {
+				LastSearch = resp
+			}
+
 			match, found, err := h.Buf.FindNext(resp, h.Buf.Start(), h.Buf.End(), h.searchOrig, true, useRegex)
 			if err != nil {
 				InfoBar.Error(err)
@@ -985,6 +1103,13 @@ func (h *BufPane) FindNext() bool {
 	if h.Cursor.HasSelection() {
 		searchLoc = h.Cursor.CurSelection[1]
 	}
+	if h.Buf.LastSearch == "" {
+		if LastSearch != "" {
+			// Look for global last search
+			h.Buf.LastSearch = LastSearch
+		}
+	}
+
 	match, found, err := h.Buf.FindNext(h.Buf.LastSearch, h.Buf.Start(), h.Buf.End(), searchLoc, true, h.Buf.LastSearchRegex)
 	if err != nil {
 		InfoBar.Error(err)
@@ -1295,14 +1420,19 @@ func (h *BufPane) paste(clip string) {
 func (h *BufPane) JumpToMatchingBrace() bool {
 	for _, bp := range buffer.BracePairs {
 		r := h.Cursor.RuneUnder(h.Cursor.X)
-		rl := h.Cursor.RuneUnder(h.Cursor.X - 1)
+
+		// Removed ss in Find matching brace - planning to remove
+		// rl := h.Cursor.RuneUnder(h.Cursor.X - 1)
+		rl := ' '
 		if r == bp[0] || r == bp[1] || rl == bp[0] || rl == bp[1] {
 			matchingBrace, left, found := h.Buf.FindMatchingBrace(bp, h.Cursor.Loc)
 			if found {
 				if left {
 					h.Cursor.GotoLoc(matchingBrace)
 				} else {
-					h.Cursor.GotoLoc(matchingBrace.Move(1, h.Buf))
+					// not doing the "jump next to it stuff"
+					// so we wont confuse multiple braces like a(b(c(d[""])))
+					h.Cursor.GotoLoc(matchingBrace)
 				}
 				h.Relocate()
 				return true
@@ -1340,6 +1470,43 @@ func (h *BufPane) JumpLine() bool {
 			h.HandleCommand(resp)
 		}
 	})
+	return true
+}
+
+// JumpNextMessage jumpst to the next linter message
+func (h *BufPane) JumpNextMessage() bool {
+	b := h.Buf
+
+	InfoBar.Message("jumpiing")
+
+	found := false
+	// Messages are not sorted, so look for the nearest
+	minDiff := 0
+	if len(b.Messages) > 0 {
+		line := 0
+		for _, m := range b.Messages {
+			diff := m.Start.Y - h.Cursor.Loc.Y
+			if diff > 0 {
+				if minDiff <= 0 || diff < minDiff {
+					minDiff = diff
+					line = m.Start.Y
+				}
+			}
+		}
+		// Found one, jump
+		if minDiff > 0 {
+			h.Cursor.GotoLoc(buffer.Loc{0, line})
+			h.Cursor.Relocate()
+			found = true
+		}
+	}
+
+	if !found {
+		InfoBar.Message("No more messages.")
+	} else {
+		h.Relocate()
+	}
+
 	return true
 }
 
@@ -1889,6 +2056,16 @@ func (h *BufPane) RemoveAllMultiCursors() bool {
 	h.Buf.ClearCursors()
 	h.multiWord = false
 	h.Relocate()
+	return true
+}
+
+func (h *BufPane) TagInfoScroll() bool {
+	if h.Buf.TagInfoIdx +1 < len(h.Buf.TagInfo) {
+		h.Buf.TagInfoIdx++
+	} else {
+		h.Buf.TagInfoIdx=0
+	}
+
 	return true
 }
 

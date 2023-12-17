@@ -129,6 +129,11 @@ func (w *BufWindow) updateDisplayInfo() {
 		w.bufHeight--
 	}
 
+	if len(b.TagInfo) > 0 {
+		w.bufHeight--
+	}
+
+
 	w.hasMessage = len(b.Messages) > 0
 
 	// We need to know the string length of the largest line number
@@ -140,8 +145,9 @@ func (w *BufWindow) updateDisplayInfo() {
 		w.gutterOffset += 2
 	}
 	if b.Settings["diffgutter"].(bool) {
-		w.gutterOffset++
+		w.gutterOffset += 1
 	}
+
 	if b.Settings["ruler"].(bool) {
 		w.gutterOffset += w.maxLineNumLength + 1
 	}
@@ -287,16 +293,20 @@ func (w *BufWindow) drawDiffGutter(backgroundStyle tcell.Style, softwrapped bool
 	symbol := ' '
 	styleName := ""
 
+	// Overrode symbole bc it causes trouble in some terminals
 	switch w.Buf.DiffStatus(bloc.Y) {
 	case buffer.DSAdded:
 		symbol = '\u258C' // Left half block
+		symbol = '+'
 		styleName = "diff-added"
 	case buffer.DSModified:
 		symbol = '\u258C' // Left half block
+		symbol = '#'
 		styleName = "diff-modified"
 	case buffer.DSDeletedAbove:
 		if !softwrapped {
 			symbol = '\u2594' // Upper one eighth block
+			symbol = '-'
 			styleName = "diff-deleted"
 		}
 	}
@@ -371,6 +381,8 @@ func (w *BufWindow) displayBuffer() {
 
 	maxWidth := w.gutterOffset + w.bufWidth
 
+	cursorline := (b.Settings["cursorline"].(bool) && w.active ) || w.Buf.Type == buffer.BTDiff
+
 	if b.ModifiedThisFrame {
 		if b.Settings["diffgutter"].(bool) {
 			b.UpdateDiff(func(synchronous bool) {
@@ -387,6 +399,15 @@ func (w *BufWindow) displayBuffer() {
 			})
 		}
 		b.ModifiedThisFrame = false
+	}
+
+	for _, c := range b.GetCursors() {
+		if (c.HasSelection()) {
+			break
+		}
+		b.LastWord = string(b.WordAt(c.Loc))
+		break
+
 	}
 
 	var matchingBraces []buffer.Loc
@@ -423,7 +444,7 @@ func (w *BufWindow) displayBuffer() {
 	}
 	curNumStyle := config.DefStyle
 	if style, ok := config.Colorscheme["current-line-number"]; ok {
-		if !b.Settings["cursorline"].(bool) {
+		if !cursorline {
 			curNumStyle = lineNumStyle
 		} else {
 			curNumStyle = style
@@ -450,6 +471,7 @@ func (w *BufWindow) displayBuffer() {
 	cursors := b.GetCursors()
 
 	curStyle := config.DefStyle
+
 	for ; vloc.Y < w.bufHeight; vloc.Y++ {
 		vloc.X = 0
 
@@ -476,11 +498,25 @@ func (w *BufWindow) displayBuffer() {
 			}
 
 			if b.Settings["ruler"].(bool) {
+				if currentLine && w.Buf.Settings["cursornum"].(bool) {
+					if ss, ok := config.Colorscheme["cursor-line"]; ok {
+						fg, _, _ := ss.Decompose()
+						s = s.Background(fg)
+					}
+				}
 				w.drawLineNum(s, false, &vloc, &bloc)
 			}
 		} else {
 			vloc.X = w.gutterOffset
 		}
+
+		w.gutterOffset = vloc.X
+
+		bline := b.LineBytes(bloc.Y)
+		blineLen := util.CharacterCount(bline)
+
+		leadingwsEnd := len(util.GetLeadingWhitespace(bline))
+		trailingwsStart := blineLen - util.CharacterCount(util.GetTrailingWhitespace(bline))
 
 		line, nColsBeforeStart, bslice, startStyle := w.getStartInfo(w.StartCol, bloc.Y)
 		if startStyle != nil {
@@ -491,11 +527,25 @@ func (w *BufWindow) displayBuffer() {
 		draw := func(r rune, combc []rune, style tcell.Style, highlight bool, showcursor bool) {
 			if nColsBeforeStart <= 0 && vloc.Y >= 0 {
 				if highlight {
-					if w.Buf.HighlightSearch && w.Buf.SearchMatch(bloc) {
-						style = config.DefStyle.Reverse(true)
-						if s, ok := config.Colorscheme["hlsearch"]; ok {
-							style = s
+
+					mt := b.SearchMatch(bloc)
+					if b.Settings["hlsearch"].(bool) && mt != 0 {
+
+						if mt == 1 && w.Buf.HighlightSearch {
+							if s, ok := config.Colorscheme["hlsearch"]; ok {
+								style = config.DefStyle.Reverse(true)
+								style = s
+							}
 						}
+						if mt == 2 {
+							if s, ok := config.Colorscheme["hlwordat"]; ok {
+								fg, _ , _ := s.Decompose()
+								style = style.Background(fg)
+							} else {
+								style = config.DefStyle.Reverse(true)
+							}
+						}
+
 					}
 
 					_, origBg, _ := style.Decompose()
@@ -504,6 +554,37 @@ func (w *BufWindow) displayBuffer() {
 					// syntax or hlsearch highlighting with non-default background takes precedence
 					// over cursor-line and color-column
 					dontOverrideBackground := origBg != defBg
+
+					if b.Settings["hltaberrors"].(bool) {
+						if s, ok := config.Colorscheme["tab-error"]; ok {
+							isTab := (r == '\t') || (r == ' ' && !showcursor)
+							if (b.Settings["tabstospaces"].(bool) && isTab) ||
+								(!b.Settings["tabstospaces"].(bool) && bloc.X < leadingwsEnd && r == ' ' && !isTab) {
+								fg, _, _ := s.Decompose()
+								style = style.Background(fg)
+								dontOverrideBackground = true
+							}
+						}
+					}
+
+					if b.Settings["hltrailingws"].(bool) {
+						if s, ok := config.Colorscheme["trailingws"]; ok {
+							if bloc.X >= trailingwsStart && bloc.X < blineLen {
+								hl := true
+								for _, c := range cursors {
+									if c.NewTrailingWsY == bloc.Y {
+										hl = false
+										break
+									}
+								}
+								if hl {
+									fg, _, _ := s.Decompose()
+									style = style.Background(fg)
+									dontOverrideBackground = true
+								}
+							}
+						}
+					}
 
 					for _, c := range cursors {
 						if c.HasSelection() &&
@@ -517,8 +598,9 @@ func (w *BufWindow) displayBuffer() {
 							}
 						}
 
-						if b.Settings["cursorline"].(bool) && w.active && !dontOverrideBackground &&
+						if cursorline && !dontOverrideBackground &&
 							!c.HasSelection() && c.Y == bloc.Y {
+							style = config.DefStyle.Reverse(true)
 							if s, ok := config.Colorscheme["cursor-line"]; ok {
 								fg, _, _ := s.Decompose()
 								style = style.Background(fg)
@@ -571,6 +653,21 @@ func (w *BufWindow) displayBuffer() {
 						}
 					}
 				}
+
+				c := b.GetActiveCursor()
+				// We are at the cursor and buffer is in AutoComplete mode
+				if c.X == bloc.X && c.Y == bloc.Y && b.HasSuggestions {
+					style = config.DefStyle.Reverse(true)
+					if s, ok := config.Colorscheme["selection"]; ok {
+						style = s
+					}
+					suggestedWord := []rune(b.Completions[b.CurSuggestion])
+					for x := 0; x < len(suggestedWord); x++ {
+						screen.SetContent(w.X+vloc.X, w.Y+vloc.Y, suggestedWord[x], nil, style)
+						vloc.X++
+					}
+				}
+
 			}
 			if nColsBeforeStart <= 0 {
 				vloc.X++
@@ -589,7 +686,14 @@ func (w *BufWindow) displayBuffer() {
 
 			// This will draw an empty line number because the current line is wrapped
 			if b.Settings["ruler"].(bool) {
-				w.drawLineNum(lineNumStyle, true, &vloc, &bloc)
+				s := lineNumStyle
+				if currentLine && w.Buf.Settings["cursornum"].(bool) {
+					if ss, ok := config.Colorscheme["cursor-line"]; ok {
+						fg, _, _ := ss.Decompose()
+						s = s.Background(fg)
+					}
+				}
+				w.drawLineNum(s, true, &vloc, &bloc)
 			}
 		}
 
@@ -693,7 +797,7 @@ func (w *BufWindow) displayBuffer() {
 
 		style := config.DefStyle
 		for _, c := range cursors {
-			if b.Settings["cursorline"].(bool) && w.active &&
+			if cursorline &&
 				!c.HasSelection() && c.Y == bloc.Y {
 				if s, ok := config.Colorscheme["cursor-line"]; ok {
 					fg, _, _ := s.Decompose()
@@ -721,6 +825,35 @@ func (w *BufWindow) displayBuffer() {
 		bloc.Y++
 		if bloc.Y >= b.LinesNum() {
 			break
+		}
+	}
+
+	if len(w.Buf.TagInfo) > 0 {
+		// Print tag info over the last line
+		curStyle := config.DefStyle.Reverse(true)
+
+		if style, ok := config.Colorscheme["statusline"]; ok {
+			curStyle = style
+		}
+		vloc.X = 0
+		// TODO unicode handling
+
+		txt := ""
+		if len(w.Buf.TagInfo) > 1 {
+			txt = findBinding("TagInfoScroll", true)
+			txt = " [Scroll: " + txt + "]"
+		}
+		txt = w.Buf.TagInfo[w.Buf.TagInfoIdx] + txt
+
+		runear := []rune(txt)
+		for _, ch := range runear {
+			screen.SetContent(w.X+vloc.X, w.Y+vloc.Y, ch, nil, curStyle)
+			vloc.X++
+		}
+
+		for i:= len(w.Buf.TagInfo); i<maxWidth; i++ {
+			screen.SetContent(w.X+vloc.X, w.Y+vloc.Y, rune(' '), nil, curStyle)
+			vloc.X++
 		}
 	}
 }

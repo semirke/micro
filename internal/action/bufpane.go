@@ -3,6 +3,7 @@ package action
 import (
 	"strings"
 	"time"
+//	"fmt"
 
 	luar "layeh.com/gopher-luar"
 
@@ -237,6 +238,8 @@ type BufPane struct {
 	// remember original location of a search in case the search is canceled
 	searchOrig buffer.Loc
 
+	// Used for start/end selection
+	StartSelectionLoc buffer.Loc
 	// The pane may not yet be fully initialized after its creation
 	// since we may not know the window geometry yet. In such case we finish
 	// its initialization a bit later, after the initial resize.
@@ -500,13 +503,21 @@ func (h *BufPane) HandleEvent(event tcell.Event) {
 		none := true
 		for _, m := range h.Buf.Messages {
 			if c.Y == m.Start.Y || c.Y == m.End.Y {
-				InfoBar.GutterMessage(m.Msg)
+				InfoBar.GutterMessage("(" + m.Owner + ") " + m.Msg)
 				none = false
 				break
 			}
 		}
 		if none && InfoBar.HasGutter {
 			InfoBar.ClearGutter()
+		}
+	}
+
+	cursors := h.Buf.GetCursors()
+	for _, c := range cursors {
+		if c.NewTrailingWsY != c.Y && (!c.HasSelection() ||
+			(c.NewTrailingWsY != c.CurSelection[0].Y && c.NewTrailingWsY != c.CurSelection[1].Y)) {
+			c.NewTrailingWsY = -1
 		}
 	}
 }
@@ -535,7 +546,8 @@ func (h *BufPane) DoKeyEvent(e Event) bool {
 }
 
 func (h *BufPane) execAction(action func(*BufPane) bool, name string, cursor int) bool {
-	if name != "Autocomplete" && name != "CycleAutocompleteBack" {
+	if (name != "Autocomplete" && name != "CycleAutocompleteBack" &&
+		name != "CursorRight" && name != "InsertNewline" ) {
 		h.Buf.HasSuggestions = false
 	}
 
@@ -698,6 +710,8 @@ var BufKeyActions = map[string]BufKeyAction{
 	"SelectDown":                (*BufPane).SelectDown,
 	"SelectLeft":                (*BufPane).SelectLeft,
 	"SelectRight":               (*BufPane).SelectRight,
+	"StartSelection":            (*BufPane).StartSelection,
+	"EndSelection":              (*BufPane).EndSelection,
 	"WordRight":                 (*BufPane).WordRight,
 	"WordLeft":                  (*BufPane).WordLeft,
 	"SelectWordRight":           (*BufPane).SelectWordRight,
@@ -711,6 +725,8 @@ var BufKeyActions = map[string]BufKeyAction{
 	"SelectToEndOfLine":         (*BufPane).SelectToEndOfLine,
 	"ParagraphPrevious":         (*BufPane).ParagraphPrevious,
 	"ParagraphNext":             (*BufPane).ParagraphNext,
+	"SelectParagraphPrevious":   (*BufPane).SelectParagraphPrevious,
+	"SelectParagraphNext":       (*BufPane).SelectParagraphNext,
 	"InsertNewline":             (*BufPane).InsertNewline,
 	"Backspace":                 (*BufPane).Backspace,
 	"Delete":                    (*BufPane).Delete,
@@ -793,8 +809,10 @@ var BufKeyActions = map[string]BufKeyAction{
 	"SkipMultiCursor":           (*BufPane).SkipMultiCursor,
 	"JumpToMatchingBrace":       (*BufPane).JumpToMatchingBrace,
 	"JumpLine":                  (*BufPane).JumpLine,
+	"JumpNextMessage":           (*BufPane).JumpNextMessage,
 	"Deselect":                  (*BufPane).Deselect,
 	"ClearInfo":                 (*BufPane).ClearInfo,
+	"TagInfoScroll":             (*BufPane).TagInfoScroll,
 	"None":                      (*BufPane).None,
 
 	// This was changed to InsertNewline but I don't want to break backwards compatibility
@@ -839,6 +857,8 @@ var MultiActions = map[string]bool{
 	"SelectToEndOfLine":         true,
 	"ParagraphPrevious":         true,
 	"ParagraphNext":             true,
+	"SelectParagraphPrevious":   true,
+	"SelectParagraphNext":       true,
 	"InsertNewline":             true,
 	"Backspace":                 true,
 	"Delete":                    true,
